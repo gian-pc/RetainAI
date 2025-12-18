@@ -1,0 +1,9 @@
+.DS_Store
+.idea/
+.vscode/
+ai-ml/venv/
+ai-ml/__pycache__/
+*.pyc
+backend/target/
+frontend/node_modules/
+frontend/.next/

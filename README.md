@@ -159,7 +159,7 @@ npm run dev
 
 ---
 
-## 👨‍💻 Autor
+## 👨‍💻 Integrantes
 
 **gianpc**
 Fullstack AI Developer

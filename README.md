@@ -163,3 +163,6 @@ npm run dev
 
 **gianpc**
 Fullstack AI Developer
+
+**biancaperrotta2**
+BackEnd Developer

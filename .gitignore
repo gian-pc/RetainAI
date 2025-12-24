@@ -1,9 +1,136 @@
+############################
+# SISTEMA OPERATIVO
+############################
+
+# macOS
 .DS_Store
-.idea/
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Screenshots accidentales
+Screen Shot*
+Screenshot*
+Captura de pantalla*
+
+############################
+# IDEs / EDITORES
+############################
+
+# VS Code
 .vscode/
-ai-ml/venv/
-ai-ml/__pycache__/
+*.code-workspace
+
+# IntelliJ / Eclipse / NetBeans
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+.metadata
+.classpath
+.project
+.settings/
+nbproject/
+
+############################
+# PYTHON / AI / ML
+############################
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+ENV/
+
+# Cache
+__pycache__/
 *.pyc
-backend/target/
-frontend/node_modules/
-frontend/.next/
+*.pyo
+*.pyd
+.Python
+
+# Logs pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+############################
+# DATA SCIENCE / EXPERIMENTOS
+############################
+
+# Datos crudos pesados (evitar bloquear GitHub)
+ai-ml/data/raw/*.csv
+ai-ml/data/raw/*.json
+ai-ml/data/raw/*.xlsx
+
+# Experimentos temporales
+ai-ml/experiments/
+ai-ml/tmp/
+
+# Modelos entrenados (usar Git LFS si pesan mucho)
+*.pkl
+*.h5
+*.joblib
+
+############################
+# JAVA / SPRING BOOT
+############################
+
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+############################
+# NODE / FRONTEND
+############################
+
+node_modules/
+.next/
+build/
+dist/
+
+# Variables de entorno
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel/
+
+############################
+# DOCKER
+############################
+
+docker-compose.override.yml
+
+############################
+# OTROS
+############################
+
+*.bak
+*.tmp
+*.swp

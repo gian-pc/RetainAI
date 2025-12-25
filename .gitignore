@@ -1,32 +1,37 @@
 ############################
-# SISTEMA OPERATIVO
+SISTEMA OPERATIVO
 ############################
 
-# macOS
+macOS
+
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
 
-# Windows
+Windows
+
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Screenshots accidentales
+Screenshots accidentales
+
 Screen Shot*
 Screenshot*
 Captura de pantalla*
 
 ############################
-# IDEs / EDITORES
+IDEs / EDITORES
 ############################
 
-# VS Code
+VS Code
+
 .vscode/
 *.code-workspace
 
-# IntelliJ / Eclipse / NetBeans
+IntelliJ / Eclipse / NetBeans
+
 .idea/
 *.iws
 *.iml
@@ -39,50 +44,72 @@ out/
 nbproject/
 
 ############################
-# PYTHON / AI / ML
+PYTHON / AI / ML
 ############################
 
-# Entornos virtuales
+Entornos virtuales
+
 venv/
 .venv/
 env/
 ENV/
 
-# Cache
-__pycache__/
+Cache
+
+pycache/
 *.pyc
 *.pyo
 *.pyd
 .Python
 
-# Logs pip
+Logs pip
+
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Jupyter
+Jupyter
+
 .ipynb_checkpoints/
 *-checkpoint.ipynb
 
 ############################
-# DATA SCIENCE / EXPERIMENTOS
+DATA SCIENCE / EXPERIMENTOS
 ############################
 
-# Datos crudos pesados (evitar bloquear GitHub)
-ai-ml/data/raw/*.csv
-ai-ml/data/raw/*.json
+1. Bloquear TODOS los datos por defecto (Seguridad)
+
+ai-ml/data/raw/.csv
+ai-ml/data/raw/.json
 ai-ml/data/raw/*.xlsx
 
-# Experimentos temporales
+2. 🟢 EXCEPCIONES: Permitir subir el dataset OFICIAL
+
+!ai-ml/data/raw/customer_dataset.csv
+
+3. Logs y Experimentos
+
+Ignorar contenido pero mantener carpetas
+
+ai-ml/logs//*
+!ai-ml/logs//.gitkeep
 ai-ml/experiments/
 ai-ml/tmp/
 
-# Modelos entrenados (usar Git LFS si pesan mucho)
-*.pkl
+4. Modelos Entrenados (.pkl)
+
+Bloquear basura temporal
+
 *.h5
 *.joblib
+*.pkl
+
+🟢 EXCEPCIONES: Permitir subir el cerebro final y los encoders
+
+!ai-ml/models//*.pkl
+!ai-ml/models//encoders.pkl
 
 ############################
-# JAVA / SPRING BOOT
+JAVA / SPRING BOOT
 ############################
 
 target/
@@ -94,11 +121,11 @@ mvnw.cmd
 *.jar
 *.war
 *.ear
-*.log
-hs_err_pid*
+.log
+hs_err_pid
 
 ############################
-# NODE / FRONTEND
+NODE / FRONTEND
 ############################
 
 node_modules/
@@ -106,29 +133,32 @@ node_modules/
 build/
 dist/
 
-# Variables de entorno
+Variables de entorno
+
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Logs
+Logs
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Vercel
+Vercel
+
 .vercel/
 
 ############################
-# DOCKER
+DOCKER
 ############################
 
 docker-compose.override.yml
 
 ############################
-# OTROS
+OTROS
 ############################
 
 *.bak

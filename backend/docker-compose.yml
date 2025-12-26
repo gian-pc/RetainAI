@@ -1,0 +1,20 @@
+services:
+  mysqldb:
+    image: mariadb:10.11
+    container_name: retainai_db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: retainai_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - retainai-net
+
+networks:
+  retainai-net:
+    driver: bridge
+
+volumes:
+  mysql_data:

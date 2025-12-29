@@ -166,3 +166,6 @@ Fullstack AI Developer
 
 **biancaperrotta2**
 BackEnd Developer
+
+**vanessaoreza**
+Data scientist

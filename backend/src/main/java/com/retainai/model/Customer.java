@@ -1,37 +1,57 @@
 package com.retainai.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import java.util.List;
+import lombok.*;
 
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Table(name = "customers")
-@Data
-@NoArgsConstructor
 public class Customer {
 
     @Id
-    @Column(length = 50)
-    private String id; // ID del CSV (No autoincremental)
+    @Column(name = "id", nullable = false)
+    private String id;
 
     private String genero;
     private Integer edad;
     private String pais;
     private String ciudad;
+
+    @Column(name = "segmento")
     private String segmento;
 
-    // Geolocalización (Para el Mapa)
     private Double latitud;
     private Double longitud;
 
-    // Relaciones (El dueño de la relación)
-    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL)
+    // --- RELACIONES CON EL "FRENO" DE LOMBOK ---
+
+    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @ToString.Exclude // <--- ESTO EVITA EL ERROR
+    @EqualsAndHashCode.Exclude // <--- ESTO TAMBIÉN
     private Subscription subscription;
 
-    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @ToString.Exclude // <--- ESTO EVITA EL ERROR
+    @EqualsAndHashCode.Exclude // <--- ESTO TAMBIÉN
     private CustomerMetrics metrics;
 
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
-    private List<AiPrediction> predictions;
+    public void setSubscription(Subscription subscription) {
+        this.subscription = subscription;
+        if (subscription != null) {
+            subscription.setCustomer(this);
+        }
+    }
+
+    public void setMetrics(CustomerMetrics metrics) {
+        this.metrics = metrics;
+        if (metrics != null) {
+            metrics.setCustomer(this);
+        }
+    }
 }

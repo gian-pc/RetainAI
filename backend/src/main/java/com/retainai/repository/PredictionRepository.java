@@ -1,10 +1,8 @@
 package com.retainai.repository;
-
-import com.retainai.model.Prediction;
+import com.retainai.model.AiPrediction;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import java.util.List;
 
-// También es una "interface"
-@Repository
-public interface PredictionRepository extends JpaRepository<Prediction, Long> {
+public interface PredictionRepository extends JpaRepository<AiPrediction, Long> {
+    List<AiPrediction> findByCustomerId(String customerId);
 }

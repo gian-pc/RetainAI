@@ -50,8 +50,8 @@
 
 ## Fuente de datos: sintética (basada en la lógica empresarial)
 
-* ![customer_dataset](https://www.kaggle.com)
-
++ [customer_dataset](https://www.kaggle.com/datasets/miadul/customer-churn-prediction-business-dataset/data)
+  
 ## Categorías de funciones
 
 ***Perfil del cliente:*** edad, género, ubicación, antigüedad, tipo de contrato

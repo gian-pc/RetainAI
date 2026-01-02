@@ -35,7 +35,7 @@ public class DashboardService {
             Double churnRate = calculateChurnRate(abandonedCustomers, totalCustomers);
 
             BigDecimal totalRevenue = subscriptionRepository.totalRevenue();
-            //Las ganancias de los usuarios activos.
+            //Las ganancias de los usuarios activos. (Este valor también se podría mostrar en el dashboard)
             BigDecimal activeSubscriptionsRevenue = subscriptionRepository.activeSubscriptionsRevenue();
 
             BigDecimal churnRevenue = customerRepository.churnRevenue();
@@ -45,7 +45,6 @@ public class DashboardService {
                     churnRate,
                     totalRevenue,
                     churnRevenue
-                    //activeSubscriptionsRevenue,
             );
 
         }catch(Exception e){

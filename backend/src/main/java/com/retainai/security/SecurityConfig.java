@@ -28,6 +28,7 @@ public class SecurityConfig {
                         // 👇👇👇 ESTA LÍNEA ES LA QUE FALTA 👇👇👇
                         .requestMatchers("/error").permitAll()
                         // 👆👆👆 SIN ESTO, SI FALLA ALGO, TE DA 403 👆👆👆
+                        .requestMatchers("/api/dashboard/**").permitAll()  // Solo para develo, Agregar seguridad
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

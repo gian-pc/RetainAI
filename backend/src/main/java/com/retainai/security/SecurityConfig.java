@@ -3,6 +3,7 @@ package com.retainai.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // <--- ¡AGREGA ESTE IMPORT!
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,10 +25,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+
+                        // Permitir subir archivos (POST)
                         .requestMatchers("/api/customers/upload").permitAll()
-                        // 👇👇👇 ESTA LÍNEA ES LA QUE FALTA 👇👇👇
+
+                        // 👇👇👇 AGREGA ESTA LÍNEA AQUÍ 👇👇👇
+                        // Permitir LEER clientes (GET) sin token
+                        .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
+
                         .requestMatchers("/error").permitAll()
-                        // 👆👆👆 SIN ESTO, SI FALLA ALGO, TE DA 403 👆👆👆
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

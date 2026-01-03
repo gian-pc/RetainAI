@@ -3,6 +3,7 @@ package com.retainai.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -23,12 +24,20 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Endpoints Públicos (Auth)
                         .requestMatchers("/auth/**").permitAll()
+
+                        // Endpoints de Clientes (Fusión: Tu parte)
                         .requestMatchers("/api/customers/upload").permitAll()
-                        // 👇👇👇 ESTA LÍNEA ES LA QUE FALTA 👇👇👇
+                        .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
+
+                        // Endpoints del Dashboard (Fusión: Parte de Juan)
+                        .requestMatchers("/api/dashboard/**").permitAll()
+
+                        // Errores
                         .requestMatchers("/error").permitAll()
-                        // 👆👆👆 SIN ESTO, SI FALLA ALGO, TE DA 403 👆👆👆
-                        .requestMatchers("/api/dashboard/**").permitAll()  // Solo para develo, Agregar seguridad
+
+                        // Todo lo demás requiere Token
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

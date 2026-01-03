@@ -1,13 +1,14 @@
 package com.retainai.dto;
 
-import com.retainai.service.DashboardService;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Data; // <--- ¡ESTA ES LA CLAVE!
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+@Data // <--- Genera Getters, Setters, toString, equals, etc.
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DashboardStatsDto {
@@ -15,6 +16,4 @@ public class DashboardStatsDto {
     private Double churnRate;
     private BigDecimal totalRevenue;
     private BigDecimal churnRevenue;
-
 }
-

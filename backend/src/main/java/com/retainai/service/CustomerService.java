@@ -19,18 +19,19 @@ public class CustomerService {
 
     public Page<CustomerSummaryDto> listarClientesPaginados(Pageable pageable) {
         return customerRepository.findAll(pageable)
-            .map(c -> new CustomerSummaryDto(
-                c.getId(),
-                c.getPais(),
-                c.getCiudad(),
-                c.getSegmento(),
-                c.getMetrics() != null && c.getMetrics().isAbandonoHistorico()
-            ));
+                .map(c -> new CustomerSummaryDto(
+                        c.getId(),
+                        c.getPais(),
+                        c.getCiudad(),
+                        c.getSegmento(),
+                        // CORRECCION AQUI: Usamos .get... y protegemos contra nulos
+                        c.getMetrics() != null && Boolean.TRUE.equals(c.getMetrics().getAbandonoHistorico())
+                ));
     }
 
     public CustomerDetailDto obtenerDetalleCliente(String id) {
         Customer customer = customerRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado: " + id));
 
         CustomerDetailDto dto = new CustomerDetailDto();
         dto.setId(customer.getId());

@@ -1,7 +1,7 @@
 package com.retainai.dto;
 
-import com.retainai.models.Subscription;
-import com.retainai.models.CustomerMetrics;
+import com.retainai.model.Subscription;
+import com.retainai.model.CustomerMetrics;
 import lombok.Data;
 
 @Data

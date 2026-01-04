@@ -1,19 +1,22 @@
 // src/types/customer.ts
 
-export interface Prediction {
-  id: number;
-  probabilidadFuga: number;
-  resultadoPrediccion: string;
-  factorPrincipal: string;
-}
-
 export interface Customer {
-  customerId: string;
-  gender: string;
-  age: number;
-  country: string;
-  city: string;
-  customerSegment: string;
-  monthlyCharges: number;
-  predictions: Prediction[];
+  id: string;
+  pais: string;
+  ciudad: string;
+  segmento: string;
+  
+  // 🚨 IMPORTANTE: Este campo viene del JSON y lo necesitamos para el semáforo (Activo/Inactivo)
+  abandonado: boolean;
+
+  // Campos que tenías antes (Los dejo opcionales '?' por si el JSON no los trae)
+  genero?: string;       
+  metrics?: {
+    scoreCsat: number;
+    ticketsSoporte: number;
+  };
+  subscription?: {
+    cuotaMensual: number;
+    mesesPermanencia: number;
+  };
 }

@@ -30,4 +30,5 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
 
     // 👇 AGREGA ESTA LÍNEA AQUÍ
     List<Customer> findByCiudad(String ciudad);
+    List<Customer> findByApellidoContainingIgnoreCase(String apellido);
 }

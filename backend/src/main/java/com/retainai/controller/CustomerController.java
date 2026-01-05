@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -47,5 +48,12 @@ public class CustomerController {
     @GetMapping("/{id}")
     public ResponseEntity<CustomerDetailDto> getDetalle(@PathVariable String id) {
         return ResponseEntity.ok(customerService.obtenerDetalleCliente(id));
+    }
+    // Tarea: Busqueda de clientes por apellido
+    @GetMapping("/search")
+    public ResponseEntity<List<CustomerSummaryDto>> buscarPorApellido(
+            @RequestParam(required = false, defaultValue = "") String query) {
+        List<CustomerSummaryDto> resultados = customerService.buscarPorApellido(query);
+        return ResponseEntity.ok(resultados);
     }
 }

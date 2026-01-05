@@ -10,7 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration; // Importante importar esto
+import org.springframework.web.cors.CorsConfiguration;
 
 import java.util.List;
 
@@ -25,34 +25,26 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Configuración CORS (Permitir Frontend y Python Local)
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration configuration = new CorsConfiguration();
-                    configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:8000")); // Frontend y Python
+                    configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:8000"));
                     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     configuration.setAllowedHeaders(List.of("*"));
                     return configuration;
                 }))
-
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints Públicos (Auth)
                         .requestMatchers("/auth/**").permitAll()
-
-                        // Endpoints de Clientes
                         .requestMatchers("/api/customers/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
-
-                        // 👇 NUEVO: Permitir la predicción de IA (Es un POST)
                         .requestMatchers("/api/customers/*/predict").permitAll()
-
-                        // Endpoints del Dashboard
                         .requestMatchers("/api/dashboard/**").permitAll()
 
-                        // Errores
-                        .requestMatchers("/error").permitAll()
+                        // 👇 AGREGA ESTA LÍNEA AQUÍ 👇
+                        .requestMatchers("/api/geo/**").permitAll()
+                        // 👆 ESTO HABILITA EL MAPA Y LA POPULACIÓN
 
-                        // Todo lo demás requiere Token
+                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

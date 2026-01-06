@@ -20,6 +20,7 @@ public class Customer {
     private Integer edad;
     private String pais;
     private String ciudad;
+    private String apellido;
 
     @Column(name = "segmento")
     private String segmento;

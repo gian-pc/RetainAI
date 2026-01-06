@@ -10,6 +10,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,5 +48,24 @@ public class CustomerService {
         dto.setSubscription(customer.getSubscription());
         dto.setMetrics(customer.getMetrics());
         return dto;
+    }
+    // BE-402: Busqueda de clientes por apellido
+    public List<CustomerSummaryDto> buscarPorApellido(String query) {
+
+        if (query == null || query.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Customer> clientes = customerRepository.findByApellidoContainingIgnoreCase(query.trim());
+
+        return clientes.stream()
+                .map(c -> new CustomerSummaryDto(
+                        c.getId(),
+                        c.getPais(),
+                        c.getCiudad(),
+                        c.getSegmento(),
+                        c.getMetrics() != null && Boolean.TRUE.equals(c.getMetrics().getAbandonoHistorico())
+                ))
+                .collect(Collectors.toList());
     }
 }

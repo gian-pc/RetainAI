@@ -1,14 +1,18 @@
 package com.retainai.service;
 
 import com.retainai.dto.GeoCustomerDto;
+import com.retainai.model.AiPrediction;
 import com.retainai.model.Customer;
 import com.retainai.repository.CustomerRepository;
+import com.retainai.repository.PredictionRepository; // 👈 Usamos TU repositorio
+import com.retainai.util.NyRealData;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -16,71 +20,101 @@ import java.util.stream.Collectors;
 public class GeoLocationService {
 
     private final CustomerRepository customerRepository;
+    private final PredictionRepository predictionRepository; // Inyección de tu repo
     private final Random random = new Random();
 
-    // 🗺️ DICCIONARIO DE CIUDADES (AHORA COMPLETO 100%)
-    private static final Map<String, double[]> CITY_CENTERS = new HashMap<>();
+    // 🎯 ZONAS ESTRATÉGICAS (Epicentros de la historia)
+    private static final double ZONE_BRONX_LAT = 40.8256;
+    private static final double ZONE_BRONX_LNG = -73.9250;
 
-    static {
-        // AMÉRICA
-        CITY_CENTERS.put("New York", new double[]{40.7128, -74.0060});
-        CITY_CENTERS.put("Toronto", new double[]{43.6532, -79.3832}); // 🇨🇦 NUEVO
+    private static final double ZONE_RICH_LAT = 40.7736;
+    private static final double ZONE_RICH_LNG = -73.9566;
 
-        // EUROPA
-        CITY_CENTERS.put("Londres", new double[]{51.5074, -0.1278});
-        CITY_CENTERS.put("London", new double[]{51.5074, -0.1278});
-        CITY_CENTERS.put("Berlin", new double[]{52.5200, 13.4050});   // 🇩🇪 NUEVO
+    private static final double ZONE_HIPSTER_LAT = 40.7145;
+    private static final double ZONE_HIPSTER_LNG = -73.9553;
 
-        // ASIA / PACÍFICO
-        CITY_CENTERS.put("Sydney", new double[]{-33.8688, 151.2093});
-        CITY_CENTERS.put("Dhaka", new double[]{23.8103, 90.4125});
-        CITY_CENTERS.put("Bangalore", new double[]{12.9716, 77.5946});
-        CITY_CENTERS.put("Delhi", new double[]{28.7041, 77.1025});    // 🇮🇳 NUEVO
-    }
-
-    private static final double DISPERSION_DEGREE = 0.06;
-
-    public GeoLocationService(CustomerRepository customerRepository) {
+    public GeoLocationService(CustomerRepository customerRepository, PredictionRepository predictionRepository) {
         this.customerRepository = customerRepository;
+        this.predictionRepository = predictionRepository;
     }
 
-    /**
-     * Data Patching: Busca clientes sin coordenadas en las ciudades soportadas
-     * y genera lat/lng aleatorias alrededor del centro.
-     */
     @Transactional
     public int populateAllCoordinates() {
         List<Customer> allCustomers = customerRepository.findAll();
         int updatedCount = 0;
+        int nyIndex = 0;
 
         for (Customer customer : allCustomers) {
             String city = customer.getCiudad();
+            if (city == null) continue;
 
-            // Si la ciudad está en nuestro mapa y el cliente NO tiene coordenadas
-            if (city != null && CITY_CENTERS.containsKey(city) &&
-                    (customer.getLatitud() == null || customer.getLongitud() == null)) {
+            String cityClean = city.trim().toLowerCase();
 
-                double[] center = CITY_CENTERS.get(city);
+            // Filtramos solo NY para la demo
+            if (cityClean.contains("new york") || cityClean.equals("ny") ||
+                    cityClean.contains("manhattan") || cityClean.contains("brooklyn") ||
+                    cityClean.contains("queens") || cityClean.contains("bronx")) {
 
-                // Generar dispersión aleatoria
-                double latOffset = (random.nextDouble() - 0.5) * DISPERSION_DEGREE;
-                double lngOffset = (random.nextDouble() - 0.5) * DISPERSION_DEGREE;
+                // 1. Asignar Coordenada Real (Edificios Reales)
+                double[] realCoords = NyRealData.COORDINATES[nyIndex % NyRealData.COORDINATES.length];
+                double lat = realCoords[0];
+                double lng = realCoords[1];
 
-                customer.setLatitud(center[0] + latOffset);
-                customer.setLongitud(center[1] + lngOffset);
+                customer.setLatitud(lat);
+                customer.setLongitud(lng);
 
+                // 2. 🧠 GENERAR PREDICCIÓN DE IA BASADA EN ZONA
+                generateAiPrediction(customer, lat, lng);
+
+                nyIndex++;
                 updatedCount++;
             }
         }
 
         customerRepository.saveAll(allCustomers);
+        System.out.println("✅ IA GEOLOCALIZADA: " + updatedCount + " predicciones generadas en NY.");
         return updatedCount;
     }
 
-    /**
-     * API PARA EL FRONTEND
-     * Devuelve solo clientes con coordenadas válidas.
-     */
+    private void generateAiPrediction(Customer c, double lat, double lng) {
+        // Calcular distancias a los epicentros
+        double distToBronx = Math.sqrt(Math.pow(lat - ZONE_BRONX_LAT, 2) + Math.pow(lng - ZONE_BRONX_LNG, 2));
+        double distToRich = Math.sqrt(Math.pow(lat - ZONE_RICH_LAT, 2) + Math.pow(lng - ZONE_RICH_LNG, 2));
+        double distToHipster = Math.sqrt(Math.pow(lat - ZONE_HIPSTER_LAT, 2) + Math.pow(lng - ZONE_HIPSTER_LNG, 2));
+
+        AiPrediction prediction = new AiPrediction();
+        prediction.setCustomer(c);
+        prediction.setFechaAnalisis(LocalDateTime.now());
+
+        // 🔴 EL BRONX -> INFRAESTRUCTURA FALLIDA -> RIESGO ALTO
+        if (distToBronx < 0.05) {
+            prediction.setProbabilidadFuga(0.85 + (random.nextDouble() * 0.14)); // 85% - 99%
+            prediction.setMotivoPrincipal("Fallas Recurrentes de Red");
+        }
+
+        // 🟢 UPPER EAST SIDE -> ZONA VIP -> RIESGO BAJO
+        else if (distToRich < 0.03) {
+            prediction.setProbabilidadFuga(0.01 + (random.nextDouble() * 0.10)); // 1% - 11%
+            prediction.setMotivoPrincipal("Cliente Satisfecho");
+        }
+
+        // 🟠 WILLIAMSBURG -> COMPETENCIA -> RIESGO MEDIO
+        else if (distToHipster < 0.03) {
+            prediction.setProbabilidadFuga(0.40 + (random.nextDouble() * 0.25)); // 40% - 65%
+            prediction.setMotivoPrincipal("Oferta Competencia Agresiva");
+        }
+
+        // ⚪ RESTO DE LA CIUDAD -> RIESGO BAJO/NORMAL
+        else {
+            prediction.setProbabilidadFuga(random.nextDouble() * 0.30); // 0% - 30%
+            prediction.setMotivoPrincipal("Sin Riesgo Aparente");
+        }
+
+        // Guardamos la predicción en la base de datos
+        predictionRepository.save(prediction);
+    }
+
+    // --- Mapeo para el Frontend ---
     public List<GeoCustomerDto> getCustomersForMap() {
         return customerRepository.findAll().stream()
                 .filter(c -> c.getLatitud() != null && c.getLongitud() != null)
@@ -91,21 +125,25 @@ public class GeoLocationService {
     private GeoCustomerDto mapToGeoDTO(Customer c) {
         String risk = "Low";
 
-        if (c.getMetrics() != null && Boolean.TRUE.equals(c.getMetrics().getAbandonoHistorico())) {
-            risk = "High";
+        // Buscamos la predicción más reciente (si existe)
+        if (c.getPredictions() != null && !c.getPredictions().isEmpty()) {
+            // Ordenamos por ID descendente o fecha para tomar la última
+            AiPrediction latest = c.getPredictions().stream()
+                    .max(Comparator.comparing(AiPrediction::getId))
+                    .orElse(null);
+
+            if (latest != null) {
+                if (latest.getProbabilidadFuga() > 0.70) {
+                    risk = "High";
+                } else if (latest.getProbabilidadFuga() > 0.35) {
+                    risk = "Medium";
+                }
+            }
         }
 
-        Double fee = 0.0;
-        if (c.getSubscription() != null && c.getSubscription().getCuotaMensual() != null) {
-            fee = c.getSubscription().getCuotaMensual().doubleValue();
-        }
+        Double fee = (c.getSubscription() != null && c.getSubscription().getCuotaMensual() != null)
+                ? c.getSubscription().getCuotaMensual().doubleValue() : 0.0;
 
-        return new GeoCustomerDto(
-                c.getId(),
-                c.getLatitud(),
-                c.getLongitud(),
-                risk,
-                fee
-        );
+        return new GeoCustomerDto(c.getId(), c.getLatitud(), c.getLongitud(), risk, fee);
     }
 }

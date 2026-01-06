@@ -3,6 +3,7 @@ package com.retainai.model;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
+import java.util.List; // 👈 Importante: Agregamos este import
 
 @Data
 @Builder
@@ -31,15 +32,22 @@ public class Customer {
 
     @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
-    @ToString.Exclude // <--- ESTO EVITA EL ERROR
-    @EqualsAndHashCode.Exclude // <--- ESTO TAMBIÉN
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Subscription subscription;
 
     @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
-    @ToString.Exclude // <--- ESTO EVITA EL ERROR
-    @EqualsAndHashCode.Exclude // <--- ESTO TAMBIÉN
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private CustomerMetrics metrics;
+
+    // 👇 AQUÍ ESTÁ EL CAMBIO: Relación con tus predicciones de IA
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference // Permite que Customer serialice sus predicciones
+    @ToString.Exclude     // Evita error StackOverflow en logs
+    @EqualsAndHashCode.Exclude
+    private List<AiPrediction> predictions;
 
     public void setSubscription(Subscription subscription) {
         this.subscription = subscription;

@@ -377,6 +377,7 @@ export default function Home() {
                             </div>
                             <div className="flex gap-2">
                                 <button
+                                    type="button"
                                     onClick={() => setCurrentPage(0)}
                                     disabled={currentPage === 0}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -384,6 +385,7 @@ export default function Home() {
                                     ⏮️ Primera
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
                                     disabled={currentPage === 0}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -391,6 +393,7 @@ export default function Home() {
                                     ◀️ Anterior
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
                                     disabled={currentPage === totalPages - 1}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -398,6 +401,7 @@ export default function Home() {
                                     Siguiente ▶️
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setCurrentPage(totalPages - 1)}
                                     disabled={currentPage === totalPages - 1}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

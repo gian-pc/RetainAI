@@ -54,25 +54,51 @@ public class PythonIntegrationService {
         }
     }
 
-    // Helper privado para "aplanar" la entidad compleja a DTO simple
+    // Helper privado para "aplanar" la entidad compleja a DTO simple con los 29 campos completos
     private PredictionInputDto mapToFlatJson(Customer c) {
         // Validación de Seniority: ¿Qué pasa si falta info crítica?
         if (c.getMetrics() == null || c.getSubscription() == null) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "El cliente tiene datos incompletos (Faltan métricas o suscripción)");
         }
 
+        var sub = c.getSubscription();
+        var met = c.getMetrics();
+
         return PredictionInputDto.builder()
-                .edad(c.getEdad())
+                // ========== CUSTOMER (4 campos) ==========
                 .genero(c.getGenero())
-                // Sacamos datos del objeto hijo 'Subscription'
-                .mesesPermanencia(c.getSubscription().getMesesPermanencia())
-                .cuotaMensual(c.getSubscription().getCuotaMensual().doubleValue())
-                // Sacamos datos del objeto hijo 'Metrics'
-                .totalTickets(c.getMetrics().getTicketsSoporte())
-                // Convertimos el Float a Integer (quitando decimales si los tiene)
-                .scoreCsat(c.getMetrics().getScoreCsat().intValue())
-                // Convertimos de Float a Double
-                .usoPromedio(c.getMetrics().getPromedioConeccion().doubleValue())
+                .edad(c.getEdad())
+                .ciudad(c.getCiudad())
+                .segmentoDeCliente(c.getSegmento())
+
+                // ========== SUBSCRIPTION (9 campos) ==========
+                .mesesPermanencia(sub.getMesesPermanencia())
+                .canalDeRegistro(sub.getCanalRegistro())
+                .tipoContrato(sub.getTipoContrato())
+                .cuotaMensual(sub.getCuotaMensual())
+                .ingresosTotales(sub.getIngresosTotales())
+                .metodoDePago(sub.getMetodoPago())
+                .erroresDePago(sub.getErroresPago())
+                .descuentoAplicado(sub.getDescuentoAplicado())
+                .aumentoUltimos3Meses(sub.getAumentoPrecio3m())
+
+                // ========== CUSTOMER_METRICS (16 campos) ==========
+                .coneccionesMensuales(met.getConeccionesMensuales())
+                .diasActivosSemanales(met.getDiasActivosSemanales())
+                .promedioConeccion(met.getPromedioConeccion() != null ? met.getPromedioConeccion().doubleValue() : null)
+                .caracteristicasUsadas(met.getCaracteristicasUsadas())
+                .tasaCrecimientoUso(met.getTasaCrecimientoUso() != null ? met.getTasaCrecimientoUso().doubleValue() : null)
+                .ultimaConeccion(met.getDiasUltimaConeccion())
+                .ticketsDeSoporte(met.getTicketsSoporte())
+                .tiempoPromedioDeResolucion(met.getTiempoResolucion() != null ? met.getTiempoResolucion().doubleValue() : null)
+                .tipoDeQueja(met.getTipoQueja())
+                .puntuacionCsates(met.getScoreCsat() != null ? met.getScoreCsat().doubleValue() : null)
+                .escaladas(met.getEscaladasSoporte())
+                .tasaAperturaEmail(met.getTasaAperturaEmail() != null ? met.getTasaAperturaEmail().doubleValue() : null)
+                .tasaClicsMarketing(met.getTasaClics() != null ? met.getTasaClics().doubleValue() : null)
+                .puntuacionNps(met.getScoreNps())
+                .respuestaDeLaEncuesta(met.getRespuestaEncuesta())
+                .recuentoDeReferencias(met.getReferenciasHechas())
                 .build();
     }
 }

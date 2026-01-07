@@ -114,11 +114,44 @@ public class GeoLocationService {
         predictionRepository.save(prediction);
     }
 
-    // --- Mapeo para el Frontend ---
-    public List<GeoCustomerDto> getCustomersForMap() {
-        return customerRepository.findAll().stream()
-                .filter(c -> c.getLatitud() != null && c.getLongitud() != null)
-                .map(this::mapToGeoDTO)
+    // --- Mapeo para el Frontend (ULTRA-OPTIMIZADO) ---
+    public List<GeoCustomerDto> getCustomersForMap(int limit) {
+        // 🚀 Query directa a DTO - NO carga relaciones innecesarias
+        org.springframework.data.domain.PageRequest pageRequest =
+            org.springframework.data.domain.PageRequest.of(0, limit);
+
+        // Esta query ya devuelve GeoCustomerDto directamente (sin Customer completo)
+        List<GeoCustomerDto> lightDtos = customerRepository.findGeoCustomersLight(pageRequest);
+
+        // Ahora calculamos el risk real basado en predicciones (batch query)
+        List<String> customerIds = lightDtos.stream()
+                .map(GeoCustomerDto::id)
+                .collect(Collectors.toList());
+
+        List<AiPrediction> predictions = predictionRepository.findLatestByCustomerIds(customerIds);
+
+        // Crear mapa de customerID -> risk calculado
+        var riskMap = predictions.stream()
+                .collect(Collectors.toMap(
+                    p -> p.getCustomer().getId(),
+                    p -> {
+                        double prob = p.getProbabilidadFuga();
+                        if (prob > 0.70) return "High";
+                        if (prob > 0.35) return "Medium";
+                        return "Low";
+                    },
+                    (r1, r2) -> r1 // Si hay duplicados, tomar el primero
+                ));
+
+        // Reemplazar "Low" default con el risk real
+        return lightDtos.stream()
+                .map(dto -> new GeoCustomerDto(
+                    dto.id(),
+                    dto.lat(),
+                    dto.lng(),
+                    riskMap.getOrDefault(dto.id(), "Low"), // Risk calculado o Low por default
+                    dto.monthlyFee()
+                ))
                 .collect(Collectors.toList());
     }
 

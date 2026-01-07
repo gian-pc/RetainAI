@@ -29,35 +29,35 @@ const Sidebar = () => {
       <nav className="flex-1 px-4 py-6 space-y-2">
         
         {/* Item Activo (Simulado) */}
-        <a href="#" className="flex items-center gap-3 px-4 py-3 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-600/20 transition-all group">
+        <button type="button" className="flex items-center gap-3 px-4 py-3 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-600/20 transition-all group w-full text-left">
           <MapIcon size={20} />
           <span className="font-medium text-sm">Geospatial View</span>
-        </a>
+        </button>
 
         {/* Items Inactivos */}
-        <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group">
+        <button type="button" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group w-full text-left">
           <LayoutDashboard size={20} />
           <span className="font-medium text-sm">Dashboard General</span>
-        </a>
+        </button>
 
-        <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group">
+        <button type="button" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group w-full text-left">
           <Users size={20} />
           <span className="font-medium text-sm">Lista de Clientes</span>
-        </a>
+        </button>
 
-        <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group">
+        <button type="button" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group w-full text-left">
           <BarChart3 size={20} />
           <span className="font-medium text-sm">Analítica & KPIs</span>
-        </a>
+        </button>
 
         <div className="pt-4 pb-2">
             <p className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Configuración</p>
         </div>
 
-        <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group">
+        <button type="button" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all group w-full text-left">
           <Settings size={20} />
           <span className="font-medium text-sm">Ajustes</span>
-        </a>
+        </button>
       </nav>
 
       {/* 3. PERFIL DE USUARIO (Abajo) */}

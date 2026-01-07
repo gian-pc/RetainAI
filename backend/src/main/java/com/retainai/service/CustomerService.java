@@ -29,6 +29,18 @@ public class CustomerService {
                 ));
     }
 
+    // 🔴 Listar solo clientes en riesgo (abandonoHistorico = true)
+    public Page<CustomerSummaryDto> listarClientesEnRiesgo(Pageable pageable) {
+        return customerRepository.findCustomersAtRisk(pageable)
+                .map(c -> new CustomerSummaryDto(
+                        c.getId(),
+                        c.getPais(),
+                        c.getCiudad(),
+                        c.getSegmento(),
+                        true // Siempre true porque vienen del filtro at-risk
+                ));
+    }
+
     public CustomerDetailDto obtenerDetalleCliente(String id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cliente no encontrado: " + id));

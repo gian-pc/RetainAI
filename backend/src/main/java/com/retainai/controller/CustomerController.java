@@ -38,9 +38,17 @@ public class CustomerController {
     // TAREA: Listado Inteligente (Paginación)
     @GetMapping
     public ResponseEntity<Page<CustomerSummaryDto>> getListado(
-            @RequestParam(defaultValue = "0") int page, 
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(customerService.listarClientesPaginados(PageRequest.of(page, size)));
+    }
+
+    // 🔴 Endpoint para clientes en riesgo (abandonoHistorico = true)
+    @GetMapping("/at-risk")
+    public ResponseEntity<Page<CustomerSummaryDto>> getCustomersAtRisk(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(customerService.listarClientesEnRiesgo(PageRequest.of(page, size)));
     }
 
     // TAREA: Detalle Profundo

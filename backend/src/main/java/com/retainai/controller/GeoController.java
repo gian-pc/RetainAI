@@ -39,10 +39,17 @@ public class GeoController {
     /**
      * 🗺️ MAPBOX ENDPOINT
      * Este es el que consumirá tu mapa en Next.js.
-     * Devuelve la lista limpia de puntos.
+     * Devuelve la lista limpia de puntos con límite configurable.
+     *
+     * @param limit Máximo de puntos a devolver (default: 1000, max: 5000)
      */
     @GetMapping("/customers")
-    public ResponseEntity<List<GeoCustomerDto>> getGeoCustomers() {
-        return ResponseEntity.ok(geoService.getCustomersForMap());
+    public ResponseEntity<List<GeoCustomerDto>> getGeoCustomers(
+            @RequestParam(defaultValue = "1000") int limit) {
+
+        // Validación de seguridad para no sobrecargar el frontend
+        int safeLimit = Math.min(limit, 5000);
+
+        return ResponseEntity.ok(geoService.getCustomersForMap(safeLimit));
     }
 }

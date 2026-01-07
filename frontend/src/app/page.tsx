@@ -22,54 +22,67 @@ interface DashboardStats {
 export default function Home() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [predictions, setPredictions] = useState<Record<string, PredictionResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
 
-  // 🔍 Filtros y Paginación
+  // 🔍 Filtros y Paginación (Server-Side)
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCity, setFilterCity] = useState<string>('all');
   const [filterSegment, setFilterSegment] = useState<string>('all');
   const [filterRisk, setFilterRisk] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(0); // Backend usa índice 0
+  const [pageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
+  // Fetch inicial de stats
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchStats = async () => {
       try {
-        const [customersRes, statsRes] = await Promise.all([
-            fetch('http://localhost:8080/api/customers'),
-            fetch('http://localhost:8080/api/dashboard/stats')
-        ]);
-
-        if (!customersRes.ok || !statsRes.ok) throw new Error('Error conectando con Java');
-
-        const customersData = await customersRes.json();
+        const statsRes = await fetch('http://localhost:8080/api/dashboard/stats');
+        if (!statsRes.ok) throw new Error('Error conectando con Java');
         const statsData = await statsRes.json();
-
-        if (Array.isArray(customersData)) {
-            setCustomers(customersData);
-        } else if (customersData.content && Array.isArray(customersData.content)) {
-            setCustomers(customersData.content);
-        } else {
-            setCustomers([]);
-        }
-
         setStats(statsData);
-
       } catch (err) {
         console.error(err);
         setError('No se pudo conectar con el Backend. Revisa que Java esté corriendo en puerto 8080.');
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // Fetch de clientes con paginación server-side
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      setLoading(true);
+      try {
+        const url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
+        const res = await fetch(url);
+
+        if (!res.ok) throw new Error('Error al cargar clientes');
+
+        const pageData = await res.json();
+
+        // Estructura del Page de Spring Boot:
+        // { content: [...], totalPages: X, totalElements: Y, number: Z, size: W }
+        setCustomers(pageData.content || []);
+        setTotalPages(pageData.totalPages || 0);
+        setTotalElements(pageData.totalElements || 0);
+
+      } catch (err) {
+        console.error(err);
+        setError('Error al cargar clientes paginados');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchCustomers();
+  }, [currentPage, pageSize]);
 
   const handlePredict = async (customerId: string) => {
     setAnalyzingIds(prev => new Set(prev).add(customerId));
@@ -104,7 +117,7 @@ export default function Home() {
     }
   };
 
-  // 🔍 Filtrado y Paginación
+  // 🔍 Filtrado Client-Side (para filtros que no están en backend aún)
   const filteredCustomers = customers.filter(c => {
     // Búsqueda por ID o ciudad
     const matchesSearch = searchTerm === '' ||
@@ -124,14 +137,9 @@ export default function Home() {
     return matchesSearch && matchesCity && matchesSegment && matchesRisk;
   });
 
-  // Datos únicos para filtros
+  // Datos únicos para filtros (de la página actual)
   const uniqueCities = Array.from(new Set(customers.map(c => c.ciudad))).sort();
   const uniqueSegments = Array.from(new Set(customers.map(c => c.segmento))).sort();
-
-  // Paginación
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans text-slate-800">
@@ -227,7 +235,7 @@ export default function Home() {
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-slate-700 text-sm">Listado de Clientes</h3>
                             <span className="text-xs text-slate-400">
-                                {filteredCustomers.length} de {customers.length} clientes
+                                {filteredCustomers.length} en página • {totalElements.toLocaleString()} total
                             </span>
                         </div>
 
@@ -238,14 +246,14 @@ export default function Home() {
                                 type="text"
                                 placeholder="🔍 Buscar por ID o ciudad..."
                                 value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                onChange={(e) => { setSearchTerm(e.target.value); }}
                                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
 
                             {/* Filtro Ciudad */}
                             <select
                                 value={filterCity}
-                                onChange={(e) => { setFilterCity(e.target.value); setCurrentPage(1); }}
+                                onChange={(e) => { setFilterCity(e.target.value); }}
                                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="all">📍 Todas las ciudades</option>
@@ -257,7 +265,7 @@ export default function Home() {
                             {/* Filtro Segmento */}
                             <select
                                 value={filterSegment}
-                                onChange={(e) => { setFilterSegment(e.target.value); setCurrentPage(1); }}
+                                onChange={(e) => { setFilterSegment(e.target.value); }}
                                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="all">👥 Todos los segmentos</option>
@@ -269,7 +277,7 @@ export default function Home() {
                             {/* Filtro Riesgo IA */}
                             <select
                                 value={filterRisk}
-                                onChange={(e) => { setFilterRisk(e.target.value); setCurrentPage(1); }}
+                                onChange={(e) => { setFilterRisk(e.target.value); }}
                                 className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="all">🔮 Todos los riesgos</option>
@@ -292,7 +300,7 @@ export default function Home() {
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                        {paginatedCustomers.map((c) => {
+                        {filteredCustomers.map((c) => {
                             const prediction = predictions[c.id];
                             const isAnalyzing = analyzingIds.has(c.id);
 
@@ -365,34 +373,34 @@ export default function Home() {
                     {totalPages > 1 && (
                         <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
                             <div className="text-xs text-slate-500">
-                                Página {currentPage} de {totalPages} • Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredCustomers.length)} de {filteredCustomers.length}
+                                Página {currentPage + 1} de {totalPages} • Mostrando {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, totalElements)} de {totalElements.toLocaleString()}
                             </div>
                             <div className="flex gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(1)}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => setCurrentPage(0)}
+                                    disabled={currentPage === 0}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     ⏮️ Primera
                                 </button>
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                    disabled={currentPage === 0}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     ◀️ Anterior
                                 </button>
                                 <button
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                    disabled={currentPage === totalPages - 1}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     Siguiente ▶️
                                 </button>
                                 <button
-                                    onClick={() => setCurrentPage(totalPages)}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => setCurrentPage(totalPages - 1)}
+                                    disabled={currentPage === totalPages - 1}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     Última ⏭️
                                 </button>

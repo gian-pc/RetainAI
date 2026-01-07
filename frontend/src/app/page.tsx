@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Customer } from '@/types/customer';
-import ChurnMap from '@/components/ChurnMap';
 import Sidebar from '@/components/Sidebar';
+
+// 🚀 Lazy loading del mapa - solo carga cuando se necesita
+const ChurnMap = dynamic(() => import('@/components/ChurnMap'), {
+  loading: () => (
+    <div className="h-[600px] w-full bg-slate-900 rounded-xl border border-slate-700 flex items-center justify-center">
+      <div className="text-green-400 font-mono text-xs animate-pulse">CARGANDO MAPA...</div>
+    </div>
+  ),
+  ssr: false // No renderizar en servidor (Mapbox solo funciona en cliente)
+});
 
 interface PredictionResult {
   risk: 'High' | 'Medium' | 'Low';
@@ -28,6 +38,13 @@ export default function Home() {
 
   const [predictions, setPredictions] = useState<Record<string, PredictionResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+
+  // 📑 Pestañas
+  const [activeTab, setActiveTab] = useState<'all' | 'at-risk' | 'analyzed'>('all');
+
+  // 🗺️ Control de visibilidad del mapa (Lazy Loading)
+  const [mapVisible, setMapVisible] = useState(false);
+  const [hasLoadedMap, setHasLoadedMap] = useState(false); // Track si se cargó alguna vez
 
   // 🔍 Filtros y Paginación (Server-Side)
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,12 +72,56 @@ export default function Home() {
     fetchStats();
   }, []);
 
+  // Resetear página cuando cambia la pestaña
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeTab]);
+
+  // 🗺️ Marcar que el mapa se cargó por primera vez
+  useEffect(() => {
+    if (mapVisible && !hasLoadedMap) {
+      setHasLoadedMap(true);
+    }
+  }, [mapVisible, hasLoadedMap]);
+
+  // 📜 Preservar posición del scroll durante cambios de paginación
+  const scrollPositionRef = useRef(0);
+
+  useEffect(() => {
+    // Guardar posición actual antes de que React re-renderice
+    scrollPositionRef.current = window.scrollY;
+  });
+
+  useEffect(() => {
+    // Restaurar scroll SOLO durante paginación, NO durante cambio de pestaña
+    // (Al cambiar pestaña es natural volver arriba)
+    const timer = setTimeout(() => {
+      window.scrollTo({
+        top: scrollPositionRef.current,
+        behavior: 'auto' // Sin smooth scroll
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [currentPage]); // Solo para paginación, no activeTab
+
   // Fetch de clientes con paginación server-side
   useEffect(() => {
     const fetchCustomers = async () => {
       setLoading(true);
       try {
-        const url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
+        let url = '';
+
+        // Seleccionar endpoint según pestaña activa
+        if (activeTab === 'all') {
+          url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
+        } else if (activeTab === 'at-risk') {
+          url = `http://localhost:8080/api/customers/at-risk?page=${currentPage}&size=${pageSize}`;
+        } else if (activeTab === 'analyzed') {
+          // Por ahora cargar todos y filtrar client-side (después optimizamos)
+          url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
+        }
+
         const res = await fetch(url);
 
         if (!res.ok) throw new Error('Error al cargar clientes');
@@ -82,7 +143,7 @@ export default function Home() {
     };
 
     fetchCustomers();
-  }, [currentPage, pageSize]);
+  }, [currentPage, pageSize, activeTab]);
 
   const handlePredict = async (customerId: string) => {
     setAnalyzingIds(prev => new Set(prev).add(customerId));
@@ -119,6 +180,11 @@ export default function Home() {
 
   // 🔍 Filtrado Client-Side (para filtros que no están en backend aún)
   const filteredCustomers = customers.filter(c => {
+    // Filtro especial para pestaña "Analizados"
+    if (activeTab === 'analyzed' && !predictions[c.id]) {
+      return false; // Solo mostrar clientes con predicción
+    }
+
     // Búsqueda por ID o ciudad
     const matchesSearch = searchTerm === '' ||
       c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -130,7 +196,7 @@ export default function Home() {
     // Filtro por segmento
     const matchesSegment = filterSegment === 'all' || c.segmento === filterSegment;
 
-    // Filtro por riesgo IA
+    // Filtro por riesgo IA (solo funciona en pestaña "Analizados")
     const matchesRisk = filterRisk === 'all' ||
       (predictions[c.id] && predictions[c.id].risk === filterRisk);
 
@@ -222,14 +288,76 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* 👇 2. SECCIÓN DE MAPA (FACTOR WOW) */}
-                {/* El mapa ahora estará mucho más arriba */}
-                <div className="mb-6 bg-slate-900 rounded-xl p-1 shadow-lg border border-slate-800">
-                    <ChurnMap />
+                {/* 👇 2. SECCIÓN DE MAPA (FACTOR WOW) - Lazy Loading */}
+                <div className="mb-6">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setMapVisible(!mapVisible); }}
+                        className={`w-full px-6 py-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                            mapVisible
+                                ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
+                                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg'
+                        }`}
+                    >
+                        {mapVisible ? '📉 Ocultar Mapa Geográfico' : '🗺️ Mostrar Mapa de Riesgo Geográfico'}
+                    </button>
+
+                    {/* 🚀 Lazy Loading + Preservación de Estado:
+                        - Primera vez: Solo carga si mapVisible=true (lazy)
+                        - Siguientes: Mantiene montado, solo oculta con CSS */}
+                    {hasLoadedMap && (
+                        <div
+                            className={`mt-4 bg-slate-900 rounded-xl p-1 shadow-lg border border-slate-800 transition-all duration-300 ${
+                                mapVisible ? 'block' : 'hidden'
+                            }`}
+                        >
+                            <ChurnMap />
+                        </div>
+                    )}
                 </div>
 
                 {/* 3. SECCIÓN DE TABLA */}
                 <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100 mb-8">
+                    {/* 📑 Pestañas de Navegación */}
+                    <div className="flex border-b border-gray-200 bg-white">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); setActiveTab('all'); }}
+                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
+                                activeTab === 'all'
+                                    ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50'
+                                    : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            📊 Todos
+                            <span className="ml-2 text-xs opacity-70">({stats?.totalCustomers.toLocaleString() || 0})</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); setActiveTab('at-risk'); }}
+                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
+                                activeTab === 'at-risk'
+                                    ? 'border-b-2 border-red-600 text-red-600 bg-red-50'
+                                    : 'text-slate-600 hover:text-red-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            🔴 En Riesgo
+                            <span className="ml-2 text-xs opacity-70">(abandonoHistorico)</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); setActiveTab('analyzed'); }}
+                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
+                                activeTab === 'analyzed'
+                                    ? 'border-b-2 border-green-600 text-green-600 bg-green-50'
+                                    : 'text-slate-600 hover:text-green-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            🎯 Analizados IA
+                            <span className="ml-2 text-xs opacity-70">({Object.keys(predictions).length})</span>
+                        </button>
+                    </div>
+
                     {/* Header con controles */}
                     <div className="p-4 border-b border-gray-100 bg-gray-50">
                         <div className="flex justify-between items-center mb-4">
@@ -334,7 +462,8 @@ export default function Home() {
                                     </div>
                                 ) : (
                                     <button
-                                    onClick={() => handlePredict(c.id)}
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); handlePredict(c.id); }}
                                     disabled={isAnalyzing}
                                     className={`
                                         px-3 py-1 rounded text-[10px] font-medium transition-all shadow-sm
@@ -378,7 +507,7 @@ export default function Home() {
                             <div className="flex gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setCurrentPage(0)}
+                                    onClick={(e) => { e.preventDefault(); setCurrentPage(0); }}
                                     disabled={currentPage === 0}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -386,7 +515,7 @@ export default function Home() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                    onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(0, p - 1)); }}
                                     disabled={currentPage === 0}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -394,7 +523,12 @@ export default function Home() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setCurrentPage(p => Math.min(totalPages - 1, p + 1));
+                                        // Prevenir auto-scroll al hacer blur del botón
+                                        e.currentTarget.blur();
+                                    }}
                                     disabled={currentPage === totalPages - 1}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -402,7 +536,7 @@ export default function Home() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setCurrentPage(totalPages - 1)}
+                                    onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages - 1); }}
                                     disabled={currentPage === totalPages - 1}
                                     className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >

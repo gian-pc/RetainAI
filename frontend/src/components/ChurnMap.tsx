@@ -28,40 +28,99 @@ const ChurnMap = () => {
   const map = useRef<mapboxgl.Map | null>(null);
   const [customers, setCustomers] = useState<GeoCustomer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false); // 🚀 Nuevo estado
   const [activeCity, setActiveCity] = useState<string | null>("New York");
   const [selectedCountry, setSelectedCountry] = useState<string>("USA");
 
   useEffect(() => {
+    let isMounted = true;
+    const CACHE_KEY = 'churnmap_data';
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
     const fetchData = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'}/geo/customers`);
+        // 🚀 Intentar obtener datos del cache primero
+        const cachedData = sessionStorage.getItem(CACHE_KEY);
+        const cachedTime = sessionStorage.getItem(`${CACHE_KEY}_time`);
+
+        if (cachedData && cachedTime) {
+          const age = Date.now() - parseInt(cachedTime);
+          if (age < CACHE_DURATION) {
+            const parsedData = JSON.parse(cachedData);
+            if (isMounted) {
+              setCustomers(parsedData);
+              setLoading(false);
+            }
+            return;
+          }
+        }
+
+        // 🚀 Limitar a 1000 puntos para performance
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'}/geo/customers?limit=1000`
+        );
         if (!res.ok) throw new Error("Error fetching geo data");
         const data = await res.json();
-        setCustomers(data);
-      } catch (error) {
-        console.error("Error mapa:", error);
+
+        // Guardar en cache
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        sessionStorage.setItem(`${CACHE_KEY}_time`, Date.now().toString());
+
+        // Solo actualizar estado si el componente sigue montado
+        if (isMounted) {
+          setCustomers(data);
+        }
+      } catch (error: any) {
+        console.error("Error cargando datos del mapa:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
+
     fetchData();
+
+    // Cleanup: marcar como desmontado
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/dark-v11",
-      center: [-73.935242, 40.730610],
-      zoom: 11,
-      pitch: 40,
-      projection: { name: 'mercator' }
-    });
+    if (!token) {
+      console.error("Error: MAPBOX_TOKEN no encontrado en variables de entorno");
+      setLoading(false);
+      return;
+    }
+
+    mapboxgl.accessToken = token;
+
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/dark-v11",
+        center: [-73.935242, 40.730610],
+        zoom: 11,
+        pitch: 40,
+        projection: { name: 'mercator' }
+      });
+
+      map.current.on("error", (e) => {
+        console.error("Error de Mapbox:", e);
+      });
+    } catch (error) {
+      console.error("Error al crear el mapa:", error);
+      setLoading(false);
+      return;
+    }
 
     map.current.on("load", () => {
+
       map.current?.addSource("customers", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -126,19 +185,25 @@ const ChurnMap = () => {
           "circle-opacity": 0.9 // Casi sólidos
         },
       });
-      
+
+      // 🚀 Marcar el mapa como listo
+      setMapReady(true);
+
+      // Intentar cargar datos si ya existen
       updateMapData();
     });
   }, []);
 
   const updateMapData = () => {
-      if (!map.current || customers.length === 0) return;
+      if (!map.current || customers.length === 0) {
+        return;
+      }
 
       let filtered = customers;
       if (activeCity) {
         const config = LOCATIONS[activeCity];
-        filtered = customers.filter(c => 
-          Math.abs(c.lat - config.lat) < 0.5 && 
+        filtered = customers.filter(c =>
+          Math.abs(c.lat - config.lat) < 0.5 &&
           Math.abs(c.lng - config.lng) < 0.5
         );
       }
@@ -148,28 +213,38 @@ const ChurnMap = () => {
         features: filtered.map((c) => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [c.lng, c.lat] },
-          properties: { 
+          properties: {
             risk: c.churnRisk,
-            mag: c.churnRisk === 'High' ? 1 : 0 // Solo High genera calor
+            mag: c.churnRisk === 'High' ? 1 : 0
           },
         })),
       };
 
-      (map.current.getSource("customers") as mapboxgl.GeoJSONSource)?.setData(geoJson);
+      const source = map.current.getSource("customers") as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData(geoJson);
+      }
   };
 
   useEffect(() => {
-    if (!map.current) return;
-    updateMapData();
-    if (activeCity) {
-        const config = LOCATIONS[activeCity];
-        map.current.flyTo({
-            center: [config.lng, config.lat],
-            zoom: config.zoom,
-            speed: 1.5
-        });
+    if (!mapReady || !map.current) {
+      return;
     }
-  }, [activeCity, customers]);
+
+    updateMapData();
+  }, [customers, mapReady]);
+
+  // useEffect separado solo para cambios de ciudad
+  useEffect(() => {
+    if (!mapReady || !map.current || !activeCity) return;
+
+    const config = LOCATIONS[activeCity];
+    map.current.flyTo({
+        center: [config.lng, config.lat],
+        zoom: config.zoom,
+        speed: 1.5
+    });
+  }, [activeCity, mapReady]);
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const country = e.target.value;
@@ -236,4 +311,5 @@ const ChurnMap = () => {
   );
 };
 
-export default ChurnMap;
+// 🚀 React.memo previene re-renders innecesarios cuando cambian otros estados del dashboard
+export default React.memo(ChurnMap);

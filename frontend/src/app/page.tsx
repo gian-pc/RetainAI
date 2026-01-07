@@ -8,6 +8,8 @@ import Sidebar from '@/components/Sidebar';
 interface PredictionResult {
   risk: 'High' | 'Medium' | 'Low';
   probability: number;
+  main_factor?: string;        // 🧠 XAI: Factor principal
+  next_best_action?: string;   // 🎯 Acción recomendada
 }
 
 interface DashboardStats {
@@ -26,6 +28,14 @@ export default function Home() {
 
   const [predictions, setPredictions] = useState<Record<string, PredictionResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+
+  // 🔍 Filtros y Paginación
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCity, setFilterCity] = useState<string>('all');
+  const [filterSegment, setFilterSegment] = useState<string>('all');
+  const [filterRisk, setFilterRisk] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,6 +103,35 @@ export default function Home() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // 🔍 Filtrado y Paginación
+  const filteredCustomers = customers.filter(c => {
+    // Búsqueda por ID o ciudad
+    const matchesSearch = searchTerm === '' ||
+      c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.ciudad.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Filtro por ciudad
+    const matchesCity = filterCity === 'all' || c.ciudad === filterCity;
+
+    // Filtro por segmento
+    const matchesSegment = filterSegment === 'all' || c.segmento === filterSegment;
+
+    // Filtro por riesgo IA
+    const matchesRisk = filterRisk === 'all' ||
+      (predictions[c.id] && predictions[c.id].risk === filterRisk);
+
+    return matchesSearch && matchesCity && matchesSegment && matchesRisk;
+  });
+
+  // Datos únicos para filtros
+  const uniqueCities = Array.from(new Set(customers.map(c => c.ciudad))).sort();
+  const uniqueSegments = Array.from(new Set(customers.map(c => c.segmento))).sort();
+
+  // Paginación
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans text-slate-800">
@@ -183,9 +222,62 @@ export default function Home() {
 
                 {/* 3. SECCIÓN DE TABLA */}
                 <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100 mb-8">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h3 className="font-bold text-slate-700 text-sm">Listado de Clientes</h3>
-                        <span className="text-xs text-slate-400">Últimos registros</span>
+                    {/* Header con controles */}
+                    <div className="p-4 border-b border-gray-100 bg-gray-50">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-slate-700 text-sm">Listado de Clientes</h3>
+                            <span className="text-xs text-slate-400">
+                                {filteredCustomers.length} de {customers.length} clientes
+                            </span>
+                        </div>
+
+                        {/* Barra de Filtros */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            {/* Búsqueda */}
+                            <input
+                                type="text"
+                                placeholder="🔍 Buscar por ID o ciudad..."
+                                value={searchTerm}
+                                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+
+                            {/* Filtro Ciudad */}
+                            <select
+                                value={filterCity}
+                                onChange={(e) => { setFilterCity(e.target.value); setCurrentPage(1); }}
+                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="all">📍 Todas las ciudades</option>
+                                {uniqueCities.map(city => (
+                                    <option key={city} value={city}>{city}</option>
+                                ))}
+                            </select>
+
+                            {/* Filtro Segmento */}
+                            <select
+                                value={filterSegment}
+                                onChange={(e) => { setFilterSegment(e.target.value); setCurrentPage(1); }}
+                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="all">👥 Todos los segmentos</option>
+                                {uniqueSegments.map(seg => (
+                                    <option key={seg} value={seg}>{seg}</option>
+                                ))}
+                            </select>
+
+                            {/* Filtro Riesgo IA */}
+                            <select
+                                value={filterRisk}
+                                onChange={(e) => { setFilterRisk(e.target.value); setCurrentPage(1); }}
+                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="all">🔮 Todos los riesgos</option>
+                                <option value="High">🔴 Alto</option>
+                                <option value="Medium">🟡 Medio</option>
+                                <option value="Low">🟢 Bajo</option>
+                            </select>
+                        </div>
                     </div>
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50 border-b border-slate-200">
@@ -194,11 +286,13 @@ export default function Home() {
                             <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Ubicación</th>
                             <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Segmento</th>
                             <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Estado</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase text-center">IA Predictiva</th>
+                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase text-center">Riesgo IA</th>
+                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">🧠 Factor Principal</th>
+                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">🎯 Acción Recomendada</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                        {customers.slice(0, 8).map((c) => { // Reducido a 8 filas para que no sea eterno el scroll
+                        {paginatedCustomers.map((c) => {
                             const prediction = predictions[c.id];
                             const isAnalyzing = analyzingIds.has(c.id);
 
@@ -231,13 +325,13 @@ export default function Home() {
                                         <span className="text-[9px] opacity-80">{(prediction.probability * 100).toFixed(0)}%</span>
                                     </div>
                                 ) : (
-                                    <button 
+                                    <button
                                     onClick={() => handlePredict(c.id)}
                                     disabled={isAnalyzing}
                                     className={`
                                         px-3 py-1 rounded text-[10px] font-medium transition-all shadow-sm
-                                        ${isAnalyzing 
-                                        ? 'bg-gray-100 text-gray-400 cursor-wait' 
+                                        ${isAnalyzing
+                                        ? 'bg-gray-100 text-gray-400 cursor-wait'
                                         : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md active:transform active:scale-95'}
                                     `}
                                     >
@@ -245,11 +339,66 @@ export default function Home() {
                                     </button>
                                 )}
                                 </td>
+                                {/* 🧠 Factor Principal */}
+                                <td className="p-3 text-xs text-slate-700 max-w-xs">
+                                    {prediction?.main_factor ? (
+                                        <span className="text-[10px] leading-relaxed">{prediction.main_factor}</span>
+                                    ) : (
+                                        <span className="text-[10px] text-slate-400 italic">-</span>
+                                    )}
+                                </td>
+                                {/* 🎯 Acción Recomendada */}
+                                <td className="p-3 text-xs text-slate-700 max-w-md">
+                                    {prediction?.next_best_action ? (
+                                        <span className="text-[10px] leading-relaxed">{prediction.next_best_action}</span>
+                                    ) : (
+                                        <span className="text-[10px] text-slate-400 italic">-</span>
+                                    )}
+                                </td>
                             </tr>
                             );
                         })}
                         </tbody>
                     </table>
+
+                    {/* Controles de Paginación */}
+                    {totalPages > 1 && (
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <div className="text-xs text-slate-500">
+                                Página {currentPage} de {totalPages} • Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredCustomers.length)} de {filteredCustomers.length}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    ⏮️ Primera
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    ◀️ Anterior
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Siguiente ▶️
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Última ⏭️
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </>
         )}

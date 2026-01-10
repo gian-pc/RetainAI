@@ -1,0 +1,31 @@
+{
+  "model_name": "Logistic Regression",
+  "model_type": "logistic_regression",
+  "training_date": "2026-01-10 08:19:39",
+  "dataset_size": 7043,
+  "train_size": 4929,
+  "val_size": 1057,
+  "test_size": 1057,
+  "n_features": 56,
+  "hyperparameters": {
+    "C": 0.1,
+    "max_iter": 1000,
+    "penalty": "l2",
+    "solver": "lbfgs"
+  },
+  "performance_metrics": {
+    "auc_train": 0.9118,
+    "auc_val": 0.9088,
+    "precision_val": 0.7672,
+    "recall_val": 0.6335,
+    "f1_val": 0.6940,
+    "overfitting_auc": 0.003
+  },
+  "artifacts": {
+    "model_file": "logistic_regression.pkl",
+    "scaler_file": "scaler.pkl",
+    "label_encoder_file": "label_encoder.pkl"
+  },
+  "status": "production_ready",
+  "notes": "Modelo campeón seleccionado por mejor AUC (0.9088) y menor overfitting (0.3%). Superior a Random Forest en generalización."
+}

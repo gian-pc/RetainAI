@@ -28,6 +28,31 @@ public class Customer {
     private Double latitud;
     private Double longitud;
 
+    // ========== CAMPOS NYC TELECOMUNICACIONES ==========
+    @Column(name = "es_mayor")
+    private Integer esMayor;  // 0 o 1
+
+    @Column(name = "tiene_pareja")
+    private String tienePareja;  // "Si" / "No"
+
+    @Column(name = "tiene_dependientes")
+    private String tieneDependientes;  // "Si" / "No"
+
+    @Column(name = "ingreso_mediano")
+    private Double ingresoMediano;
+
+    @Column(name = "densidad_poblacional")
+    private Double densidadPoblacional;
+
+    @Column(name = "borough_risk")
+    private Double boroughRisk;
+
+    @Column(name = "high_density_area")
+    private Integer highDensityArea;  // 0 o 1
+
+    @Column(name = "income_bracket")
+    private String incomeBracket;  // "Low" / "Medium" / "High"
+
     // --- RELACIONES CON EL "FRENO" DE LOMBOK ---
 
     @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

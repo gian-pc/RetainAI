@@ -1,0 +1,34 @@
+{
+  "model_name": "Random Forest",
+  "model_type": "clean",
+  "description": "Production-ready model without data leakage",
+  "train_date": "2026-01-13 22:08:40",
+  "train_samples": 7760,
+  "test_samples": 1941,
+  "n_features": 46,
+  "metrics": {
+    "Accuracy": 0.7753735188047398,
+    "Precision": 0.5536480686695279,
+    "Recall": 0.7573385518590998,
+    "F1-Score": 0.6396694214876033,
+    "ROC-AUC": 0.8594022415940226
+  },
+  "clean_features_only": true,
+  "leakage_removed": true,
+  "target_names": [
+    "No Churn",
+    "Churn"
+  ],
+  "top_10_features": [
+    "EsMayor",
+    "IngresoMediano",
+    "DensidadPoblacional",
+    "Antiguedad",
+    "CargoMensual",
+    "CargosTotal",
+    "score_riesgo",
+    "servicios_premium_count",
+    "risk_flag",
+    "borough_risk"
+  ]
+}

@@ -54,51 +54,59 @@ public class PythonIntegrationService {
         }
     }
 
-    // Helper privado para "aplanar" la entidad compleja a DTO simple con los 29 campos completos
+    // Helper privado para mapear entidad Customer completa al DTO NYC (30 campos)
     private PredictionInputDto mapToFlatJson(Customer c) {
-        // Validación de Seniority: ¿Qué pasa si falta info crítica?
-        if (c.getMetrics() == null || c.getSubscription() == null) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "El cliente tiene datos incompletos (Faltan métricas o suscripción)");
+        // Validación: Necesitamos al menos la suscripción
+        if (c.getSubscription() == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "El cliente no tiene suscripción asociada");
         }
 
         var sub = c.getSubscription();
-        var met = c.getMetrics();
 
         return PredictionInputDto.builder()
-                // ========== CUSTOMER (4 campos) ==========
+                // ========== DEMOGRÁFICOS (4 campos) ==========
                 .genero(c.getGenero())
-                .edad(c.getEdad())
-                .ciudad(c.getCiudad())
-                .segmentoDeCliente(c.getSegmento())
+                .esMayor(c.getEsMayor() != null ? c.getEsMayor() : 0)
+                .tienePareja(c.getTienePareja() != null ? c.getTienePareja() : "No")
+                .tieneDependientes(c.getTieneDependientes() != null ? c.getTieneDependientes() : "No")
 
-                // ========== SUBSCRIPTION (9 campos) ==========
-                .mesesPermanencia(sub.getMesesPermanencia())
-                .canalDeRegistro(sub.getCanalRegistro())
-                .tipoContrato(sub.getTipoContrato())
-                .cuotaMensual(sub.getCuotaMensual())
-                .ingresosTotales(sub.getIngresosTotales())
-                .metodoDePago(sub.getMetodoPago())
-                .erroresDePago(sub.getErroresPago())
-                .descuentoAplicado(sub.getDescuentoAplicado())
-                .aumentoUltimos3Meses(sub.getAumentoPrecio3m())
+                // ========== GEOGRÁFICOS (4 campos) ==========
+                .ingresoMediano(c.getIngresoMediano() != null ? c.getIngresoMediano() : 50000.0)
+                .densidadPoblacional(c.getDensidadPoblacional() != null ? c.getDensidadPoblacional() : 15000.0)
+                .boroughRisk(c.getBoroughRisk() != null ? c.getBoroughRisk() : 20.0)
+                .highDensityArea(c.getHighDensityArea() != null ? c.getHighDensityArea() : 0)
 
-                // ========== CUSTOMER_METRICS (16 campos) ==========
-                .coneccionesMensuales(met.getConeccionesMensuales())
-                .diasActivosSemanales(met.getDiasActivosSemanales())
-                .promedioConeccion(met.getPromedioConeccion() != null ? met.getPromedioConeccion().doubleValue() : null)
-                .caracteristicasUsadas(met.getCaracteristicasUsadas())
-                .tasaCrecimientoUso(met.getTasaCrecimientoUso() != null ? met.getTasaCrecimientoUso().doubleValue() : null)
-                .ultimaConeccion(met.getDiasUltimaConeccion())
-                .ticketsDeSoporte(met.getTicketsSoporte())
-                .tiempoPromedioDeResolucion(met.getTiempoResolucion() != null ? met.getTiempoResolucion().doubleValue() : null)
-                .tipoDeQueja(met.getTipoQueja())
-                .puntuacionCsates(met.getScoreCsat() != null ? met.getScoreCsat().doubleValue() : null)
-                .escaladas(met.getEscaladasSoporte())
-                .tasaAperturaEmail(met.getTasaAperturaEmail() != null ? met.getTasaAperturaEmail().doubleValue() : null)
-                .tasaClicsMarketing(met.getTasaClics() != null ? met.getTasaClics().doubleValue() : null)
-                .puntuacionNps(met.getScoreNps())
-                .respuestaDeLaEncuesta(met.getRespuestaEncuesta())
-                .recuentoDeReferencias(met.getReferenciasHechas())
+                // ========== SERVICIOS (10 campos) ==========
+                .servicioTelefono(sub.getServicioTelefono() != null ? sub.getServicioTelefono() : "No")
+                .lineasMultiples(sub.getLineasMultiples() != null ? sub.getLineasMultiples() : "No")
+                .tipoInternet(sub.getTipoInternet() != null ? sub.getTipoInternet() : "No")
+                .seguridadOnline(sub.getSeguridadOnline() != null ? sub.getSeguridadOnline() : "No")
+                .respaldoOnline(sub.getRespaldoOnline() != null ? sub.getRespaldoOnline() : "No")
+                .proteccionDispositivo(sub.getProteccionDispositivo() != null ? sub.getProteccionDispositivo() : "No")
+                .soporteTecnico(sub.getSoporteTecnico() != null ? sub.getSoporteTecnico() : "No")
+                .streamingTV(sub.getStreamingTV() != null ? sub.getStreamingTV() : "No")
+                .streamingPeliculas(sub.getStreamingPeliculas() != null ? sub.getStreamingPeliculas() : "No")
+                .serviciosPremiumCount(sub.getServiciosPremiumCount() != null ? sub.getServiciosPremiumCount() : 0)
+
+                // ========== CONTRATO (5 campos) ==========
+                .tipoContrato(sub.getTipoContrato() != null ? sub.getTipoContrato() : "Mensual")
+                .facturacionSinPapel(sub.getFacturacionSinPapel() != null ? sub.getFacturacionSinPapel() : "No")
+                .metodoPago(sub.getMetodoPago() != null ? sub.getMetodoPago() : "Cheque electrónico")
+                .antiguedad(sub.getMesesPermanencia() != null ? sub.getMesesPermanencia() : 1)
+                .tenureGroup(sub.getTenureGroup() != null ? sub.getTenureGroup() : "0-12 meses")
+
+                // ========== FINANCIERO (2 campos) ==========
+                .cargoMensual(sub.getCuotaMensual() != null ? sub.getCuotaMensual() : 50.0)
+                .cargosTotal(sub.getIngresosTotales() != null ? sub.getIngresosTotales() : 100.0)
+
+                // ========== SEGMENTACIÓN (4 campos) ==========
+                .segmentoCliente(c.getSegmento() != null ? c.getSegmento() : "Residencial")
+                .incomeBracket(c.getIncomeBracket() != null ? c.getIncomeBracket() : "Medium")
+                .nivelRiesgo(sub.getNivelRiesgo() != null ? sub.getNivelRiesgo() : "Medio")
+                .scoreRiesgo(sub.getScoreRiesgo() != null ? sub.getScoreRiesgo() : 5.0)
+                .riskFlag(sub.getRiskFlag() != null ? sub.getRiskFlag() : 0)
+
                 .build();
     }
 }

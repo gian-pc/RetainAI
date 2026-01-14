@@ -4,97 +4,107 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 
+/**
+ * DTO para enviar datos a FastAPI (Modelo NYC Telecomunicaciones)
+ * 30 campos alineados con el dataset de entrenamiento
+ */
 @Data
 @Builder
 public class PredictionInputDto {
 
-    // ========== CUSTOMER (4 campos) ==========
-    @JsonProperty("genero")
-    private String genero;
+    // ========== DEMOGRÁFICOS (4 campos) ==========
+    @JsonProperty("Genero")
+    private String genero;  // "Masculino" / "Femenino"
 
-    @JsonProperty("edad")
-    private Integer edad;
+    @JsonProperty("EsMayor")
+    private Integer esMayor;  // 0 o 1
 
-    @JsonProperty("ciudad")
-    private String ciudad;
+    @JsonProperty("TienePareja")
+    private String tienePareja;  // "Si" / "No"
 
-    @JsonProperty("segmento_de_cliente")
-    private String segmentoDeCliente;
+    @JsonProperty("TieneDependientes")
+    private String tieneDependientes;  // "Si" / "No"
 
-    // ========== SUBSCRIPTION (9 campos) ==========
-    @JsonProperty("meses_permanencia")
-    private Integer mesesPermanencia;
+    // ========== GEOGRÁFICOS (4 campos) ==========
+    @JsonProperty("IngresoMediano")
+    private Double ingresoMediano;
 
-    @JsonProperty("canal_de_registro")
-    private String canalDeRegistro;
+    @JsonProperty("DensidadPoblacional")
+    private Double densidadPoblacional;
 
-    @JsonProperty("tipo_contrato")
-    private String tipoContrato;
+    @JsonProperty("borough_risk")
+    private Double boroughRisk;
 
-    @JsonProperty("cuota_mensual")
-    private Double cuotaMensual;
+    @JsonProperty("high_density_area")
+    private Integer highDensityArea;  // 0 o 1
 
-    @JsonProperty("ingresos_totales")
-    private Double ingresosTotales;
+    // ========== SERVICIOS (10 campos) ==========
+    @JsonProperty("ServicioTelefono")
+    private String servicioTelefono;  // "Si" / "No"
 
-    @JsonProperty("metodo_de_pago")
-    private String metodoDePago;
+    @JsonProperty("LineasMultiples")
+    private String lineasMultiples;  // "Si" / "No" / "Sin servicio"
 
-    @JsonProperty("errores_de_pago")
-    private Integer erroresDePago;
+    @JsonProperty("TipoInternet")
+    private String tipoInternet;  // "Fibra óptica" / "DSL" / "No"
 
-    @JsonProperty("descuento_aplicado")
-    private String descuentoAplicado;
+    @JsonProperty("SeguridadOnline")
+    private String seguridadOnline;  // "Si" / "No" / "No internet service"
 
-    @JsonProperty("aumento_ultimos_3_meses")
-    private String aumentoUltimos3Meses;
+    @JsonProperty("RespaldoOnline")
+    private String respaldoOnline;  // "Si" / "No" / "No internet service"
 
-    // ========== CUSTOMER_METRICS (16 campos) ==========
-    @JsonProperty("conecciones_mensuales")
-    private Integer coneccionesMensuales;
+    @JsonProperty("ProteccionDispositivo")
+    private String proteccionDispositivo;  // "Si" / "No" / "No internet service"
 
-    @JsonProperty("dias_activos_semanales")
-    private Integer diasActivosSemanales;
+    @JsonProperty("SoporteTecnico")
+    private String soporteTecnico;  // "Si" / "No" / "No internet service"
 
-    @JsonProperty("promedio_coneccion")
-    private Double promedioConeccion;
+    @JsonProperty("StreamingTV")
+    private String streamingTV;  // "Si" / "No" / "No internet service"
 
-    @JsonProperty("caracteristicas_usadas")
-    private Integer caracteristicasUsadas;
+    @JsonProperty("StreamingPeliculas")
+    private String streamingPeliculas;  // "Si" / "No" / "No internet service"
 
-    @JsonProperty("tasa_crecimiento_uso")
-    private Double tasaCrecimientoUso;
+    @JsonProperty("servicios_premium_count")
+    private Integer serviciosPremiumCount;  // 0-4
 
-    @JsonProperty("ultima_coneccion")
-    private Integer ultimaConeccion;
+    // ========== CONTRATO (5 campos) ==========
+    @JsonProperty("TipoContrato")
+    private String tipoContrato;  // "Mensual" / "Un año" / "Dos años"
 
-    @JsonProperty("tickets_de_soporte")
-    private Integer ticketsDeSoporte;
+    @JsonProperty("FacturacionSinPapel")
+    private String facturacionSinPapel;  // "Si" / "No"
 
-    @JsonProperty("tiempo_promedio_de_resolucion")
-    private Double tiempoPromedioDeResolucion;
+    @JsonProperty("MetodoPago")
+    private String metodoPago;  // "Cheque electrónico" / "Cheque por correo" / "Tarjeta de crédito" / "Transferencia bancaria"
 
-    @JsonProperty("tipo_de_queja")
-    private String tipoDeQueja;
+    @JsonProperty("Antiguedad")
+    private Integer antiguedad;  // Meses
 
-    @JsonProperty("puntuacion_csates")
-    private Double puntuacionCsates;
+    @JsonProperty("tenure_group")
+    private String tenureGroup;  // "0-12 meses" / "13-24 meses" / "25-48 meses" / "49+ meses"
 
-    @JsonProperty("escaladas")
-    private Integer escaladas;
+    // ========== FINANCIERO (2 campos) ==========
+    @JsonProperty("CargoMensual")
+    private Double cargoMensual;
 
-    @JsonProperty("tasa_apertura_email")
-    private Double tasaAperturaEmail;
+    @JsonProperty("CargosTotal")
+    private Double cargosTotal;
 
-    @JsonProperty("tasa_clics_marketing")
-    private Double tasaClicsMarketing;
+    // ========== SEGMENTACIÓN (4 campos) ==========
+    @JsonProperty("SegmentoCliente")
+    private String segmentoCliente;  // "Residencial" / "PYME" / "Corporativo"
 
-    @JsonProperty("puntuacion_nps")
-    private Integer puntuacionNps;
+    @JsonProperty("income_bracket")
+    private String incomeBracket;  // "Low" / "Medium" / "High"
 
-    @JsonProperty("respuesta_de_la_encuesta")
-    private String respuestaDeLaEncuesta;
+    @JsonProperty("nivel_riesgo")
+    private String nivelRiesgo;  // "Bajo" / "Medio" / "Alto"
 
-    @JsonProperty("recuento_de_referencias")
-    private Integer recuentoDeReferencias;
+    @JsonProperty("score_riesgo")
+    private Double scoreRiesgo;  // 0-15 (calculado)
+
+    @JsonProperty("risk_flag")
+    private Integer riskFlag;  // 0 o 1
 }

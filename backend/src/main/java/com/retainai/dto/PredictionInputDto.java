@@ -92,19 +92,53 @@ public class PredictionInputDto {
     @JsonProperty("CargosTotal")
     private Double cargosTotal;
 
-    // ========== SEGMENTACIÓN (4 campos) ==========
+    // ========== SEGMENTACIÓN (2 campos) ==========
     @JsonProperty("SegmentoCliente")
     private String segmentoCliente;  // "Residencial" / "PYME" / "Corporativo"
 
     @JsonProperty("income_bracket")
     private String incomeBracket;  // "Low" / "Medium" / "High"
 
-    @JsonProperty("nivel_riesgo")
-    private String nivelRiesgo;  // "Bajo" / "Medio" / "Alto"
+    // ⚠️ REMOVIDOS: nivel_riesgo, score_riesgo, risk_flag (eran data leakage - el modelo los predice, no los usa como input)
 
-    @JsonProperty("score_riesgo")
-    private Double scoreRiesgo;  // 0-15 (calculado)
+    // ========== COMPORTAMIENTO Y SATISFACCIÓN (CRÍTICO PARA XAI) ==========
+    // Soporte y quejas
+    @JsonProperty("TicketsSoporte")
+    private Integer ticketsSoporte;  // Número de tickets abiertos
 
-    @JsonProperty("risk_flag")
-    private Integer riskFlag;  // 0 o 1
+    @JsonProperty("Escaladas")
+    private Integer escaladas;  // Tickets escalados
+
+    @JsonProperty("TipoDeQueja")
+    private String tipoDeQueja;  // "Ninguna", "Red", "Facturacion", "Precio", "Servicio"
+
+    @JsonProperty("has_queja")
+    private Integer hasQueja;  // 0 o 1
+
+    @JsonProperty("alto_tickets")
+    private Integer altoTickets;  // 0 o 1
+
+    @JsonProperty("TiempoResolucion")
+    private Double tiempoResolucion;  // Tiempo promedio de resolución en horas
+
+    // Satisfacción del cliente
+    @JsonProperty("PuntuacionNPS")
+    private Double puntuacionNPS;  // Net Promoter Score (0-100)
+
+    @JsonProperty("PuntuacionCSAT")
+    private Double puntuacionCSAT;  // Customer Satisfaction (1-5)
+
+    @JsonProperty("nps_categoria")
+    private String npsCategoria;  // "Detractor", "Pasivo", "Promotor"
+
+    @JsonProperty("csat_categoria")
+    private String csatCategoria;  // "Insatisfecho", "Neutral", "Satisfecho"
+
+    // Engagement
+    @JsonProperty("TasaAperturaEmail")
+    private Double tasaAperturaEmail;  // Tasa de apertura de emails (0-1)
+
+    // Precio relativo
+    @JsonProperty("ratio_precio_ingreso")
+    private Double ratioPrecioIngreso;  // CargoMensual / IngresoMediano
 }

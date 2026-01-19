@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class DashboardStatsDto {
     private long totalCustomers;
+    private long abandonedCustomers; // Cantidad absoluta de clientes que abandonaron
     private Double churnRate;
     private BigDecimal totalRevenue;
     private BigDecimal churnRevenue;

@@ -1,33 +1,33 @@
 {
-  "training_date": "2026-01-10 08:19:39",
-  "dataset_size": 7043,
-  "train_size": 4929,
-  "val_size": 1057,
-  "test_size": 1057,
-  "n_features": 56,
+  "training_date": "2026-01-16 10:11:35",
+  "dataset_size": 9701,
+  "train_size": 6789,
+  "val_size": 1456,
+  "test_size": 1456,
+  "n_features": 162,
   "models": {
     "logistic_regression": {
       "best_params": {
-        "C": 0.1,
+        "C": 10,
         "max_iter": 1000,
         "penalty": "l2",
         "solver": "lbfgs"
       },
-      "auc_val": 0.9087940712477529,
-      "f1_val": 0.6939571150097466
+      "auc_val": 0.9984348625591752,
+      "f1_val": 0.9509594882729211
     },
     "random_forest": {
       "best_params": {
-        "max_depth": 20,
+        "max_depth": 10,
         "max_features": "sqrt",
-        "min_samples_leaf": 10,
+        "min_samples_leaf": 5,
         "min_samples_split": 10,
         "n_estimators": 200
       },
-      "auc_val": 0.8998468283376747,
-      "f1_val": 0.6639839034205232
+      "auc_val": 0.9995437940194905,
+      "f1_val": 0.9743589743589743
     }
   },
-  "best_model": "Logistic Regression",
-  "best_auc": 0.9087940712477529
+  "best_model": "Random Forest",
+  "best_auc": 0.9995437940194905
 }

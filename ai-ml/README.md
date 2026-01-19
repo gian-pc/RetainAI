@@ -6,7 +6,8 @@
 **Registros:** 9,701 clientes  
 **Columnas:** 67  
 **Ubicación:** New York City  
-**Estado:** Listo para ETL
+**Diccionario de Datos:** [Ver detalle completo en docs/data_dictionary.md](docs/data_dictionary.md)  
+**Estado:** ✅ Limpio y Procesado
 
 ---
 
@@ -17,85 +18,82 @@ ai-ml/
 ├── data/
 │   └── data.csv                    # Dataset principal (NYC Telecom)
 │
-├── notebooks/                      # Notebooks del equipo (PENDIENTE)
-│   ├── gian/                       # Pipeline completo de Gian
-│   ├── gabriel/                    # Pipeline completo de Gabriel
-│   ├── vanessa/                    # Pipeline completo de Vanessa
-│   └── ivan/                       # Pipeline completo de Ivan
+├── notebooks/                      # Pipelines de ML
+│   ├── gian/                       # 🚧 EN PROCESO (Fase Feature Eng.)
+│   ├── gabriel/                    # (Pendiente)
+│   ├── vanessa/                    # (Pendiente)
+│   ├── ivan/                       # (Pendiente)
+│   └── marcelo/                    # (Pendiente)
 │
-├── outputs/                        # Outputs individuales (PENDIENTE)
-│   ├── gian/
-│   ├── gabriel/
-│   ├── vanessa/
-│   └── ivan/
+├── outputs/                        # Resultados Individuales
+│   └── gian/
+│       ├── data/                   # Datasets procesados (clean, engineered)
+│       ├── figures/                # Gráficos (EDA, Model Performance)
+│       ├── models/                 # Modelos entrenados
+│       └── reports/                # Reportes técnicos del pipeline
 │
-├── models/                         # Modelos ML (ACTUAL)
-│   └── champion_model.pkl          # Modelo en producción
+├── reports/                        # Resultados Consolidados (Negocio)
+│   ├── bi_insights.json            # Insights para Business Intelligence
+│   ├── roi_analysis.json           # Análisis de Retorno de Inversión
+│   └── figures/                    # Gráficos ejecutivos
 │
-├── src/                            # Código Python reutilizable
-│   ├── data_loader.py
-│   ├── feature_engineering.py
-│   └── model_utils.py
+├── models/                         # Modelos Finales
+│   └── champion_model.pkl          # Modelo actual en producción
 │
-├── reports/                        # Reportes generados
-│
-├── docs/                           # Documentación
-│
-└── _temp_old_files/                # Archivos antiguos (backup)
+└── docs/                           # Documentación
+    ├── data_structure.md           # Guía de estructura de carpetas
+    └── data_dictionary.md          # Diccionario de variables
 ```
 
 ---
 
-## 🎯 Próximos Pasos
+## 🚀 Estado del Proyecto
 
-### Fase 1: Crear Estructura de Carpetas
-- [ ] Crear carpetas para cada miembro del equipo
-- [ ] Crear carpetas de outputs
-- [ ] Configurar paths
+### ✅ Fase 1: Setup & Data Access
+- Estructura de carpetas creada y validada
+- Acceso centralizado a `data/data.csv`
+- Documentación inicial (`data_structure.md`)
 
-### Fase 2: Pipeline Individual (Cada Miembro)
-Cada persona creará 10 notebooks:
-1. `01_data_collection.ipynb`
-2. `02_data_quality.ipynb`
-3. `03_data_cleaning.ipynb`
-4. `04_data_transformation.ipynb`
-5. `05_eda.ipynb`
-6. `06_feature_engineering.ipynb`
-7. `07_feature_selection.ipynb`
-8. `08_model_training.ipynb`
-9. `09_model_evaluation.ipynb`
-10. `10_model_deployment.ipynb`
+### 🚧 Fase 2: Desarrollo de Pipelines (Actual)
 
-### Fase 3: Comparación de Modelos
-- Comparar los 4 modelos del equipo
-- Seleccionar el mejor
-- Deployment
+#### Pipeline de Gian
+- [x] **01 Collection:** Carga y validación inicial
+- [x] **02 Quality:** Análisis de nulos, duplicados y outliers
+- [x] **03 Cleaning:** Limpieza y estandarización
+- [x] **04 Transformation:** Encoding y escalado
+- [x] **05 EDA:** Análisis exploratorio profundo & Insights
+- [x] **06 Feature Engineering:** Creación de variables predictivas
+- [ ] **07 Feature Selection:** Selección de inputs clave
+- [ ] **08 Training:** Entrenamiento de modelos
+- [ ] **09 Evaluation:** Validación cruzada y métricas
+- [ ] **10 Deployment:** Preparación para producción
 
 ---
 
 ## 👥 Equipo de Data Science
 
-- **Gian** - Random Forest / XGBoost
-- **Gabriel** - LightGBM / CatBoost
-- **Vanessa** - Neural Networks
-- **Ivan** - Ensemble Methods
+- **Gian**
+- **Gabriel**
+- **Vanessa**
+- **Ivan**
+- **Marcelo**
 
 ---
 
 ## 🗽 Características del Dataset
 
 - **Precios:** Realistas para NYC ($15-$350/mes)
-- **Outliers:** 3.5% de casos extremos
-- **Valores nulos:** ~10% estratégicos
-- **Naming:** 100% snake_case
-- **Calidad:** Listo para ETL profesional
+- **Churn Rate:** ~16.5% (Realista para Telecom)
+- **Segmentos:** Residencial, PyME, Corporativo
+- **Riesgo:** Score calculado de 0-100 con alta predictibilidad
+- **Calidad:** 100% snake_case, sin duplicados
 
 ---
 
-## 📝 Notas
+## 📝 Notas Técnicas
 
-- Dataset original renombrado de `raw_data_nyc.csv` a `data.csv`
-- Archivos antiguos movidos a `_temp_old_files/`
-- Modelo actual en producción: `models/champion_model.pkl`
+- **Entorno:** Python 3.11+
+- **Librerías Clave:** Pandas, Scikit-learn, XGBoost, Seaborn
+- **Tracking:** Todos los experimentos de Gian se guardan en `outputs/gian/reports/`
 
 **Fecha de última actualización:** 2026-01-19

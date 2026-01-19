@@ -15,31 +15,41 @@ const LOCATIONS: Record<string, { lat: number; lng: number; zoom: number; countr
 
 const COUNTRIES = Array.from(new Set(Object.values(LOCATIONS).map((l) => l.country))).sort();
 
-interface GeoCustomer {
-  id: string;
-  lat: number;
-  lng: number;
-  churnRisk: "High" | "Medium" | "Low";
-  monthlyFee: number;
+// 📦 Estructura del endpoint /api/dashboard/heatmap
+interface HeatmapPoint {
+  customerId: string;
+  latitude: number;
+  longitude: number;
+  churnProbability: number;
+  riskLevel: "High" | "Medium" | "Low";
+  segmento: string;
+  tipoContrato: string;
+  cargoMensual: number;
+  antiguedad: number;
+  ciudad: string;
+  borough: string | null;
 }
 
 const ChurnMap = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [customers, setCustomers] = useState<GeoCustomer[]>([]);
+  const [heatmapData, setHeatmapData] = useState<HeatmapPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mapReady, setMapReady] = useState(false); // 🚀 Nuevo estado
+  const [mapReady, setMapReady] = useState(false);
   const [activeCity, setActiveCity] = useState<string | null>("New York");
   const [selectedCountry, setSelectedCountry] = useState<string>("USA");
+  const dataLoadedRef = useRef(false); // ✅ Previene loops
 
   useEffect(() => {
+    // ✅ Solo cargar datos UNA VEZ
+    if (dataLoadedRef.current) return;
+
     let isMounted = true;
     const CACHE_KEY = 'churnmap_data';
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+    const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
 
     const fetchData = async () => {
       try {
-        // 🚀 Intentar obtener datos del cache primero
         const cachedData = sessionStorage.getItem(CACHE_KEY);
         const cachedTime = sessionStorage.getItem(`${CACHE_KEY}_time`);
 
@@ -48,30 +58,41 @@ const ChurnMap = () => {
           if (age < CACHE_DURATION) {
             const parsedData = JSON.parse(cachedData);
             if (isMounted) {
-              setCustomers(parsedData);
+              setHeatmapData(parsedData);
               setLoading(false);
+              dataLoadedRef.current = true;
             }
             return;
           }
         }
 
-        // 🚀 Limitar a 1000 puntos para performance
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'}/geo/customers?limit=1000`
-        );
-        if (!res.ok) throw new Error("Error fetching geo data");
-        const data = await res.json();
+        // ⚡ Timeout de 10 segundos para evitar esperas infinitas
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
 
-        // Guardar en cache
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'}/dashboard/heatmap`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeout);
+
+        if (!res.ok) throw new Error("Error fetching heatmap data");
+        const data: HeatmapPoint[] = await res.json();
+
+        // ✅ Guardar TODOS los datos (sin filtrar)
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
         sessionStorage.setItem(`${CACHE_KEY}_time`, Date.now().toString());
 
-        // Solo actualizar estado si el componente sigue montado
         if (isMounted) {
-          setCustomers(data);
+          setHeatmapData(data);
+          dataLoadedRef.current = true;
         }
       } catch (error: any) {
         console.error("Error cargando datos del mapa:", error);
+        // ✅ No bloquear la UI, dejar que el componente se renderice vacío
+        if (isMounted) {
+          dataLoadedRef.current = true; // Marcar como cargado para evitar reintentos
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -81,11 +102,10 @@ const ChurnMap = () => {
 
     fetchData();
 
-    // Cleanup: marcar como desmontado
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, []); // ✅ Solo ejecutar una vez
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -103,7 +123,7 @@ const ChurnMap = () => {
     try {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: "mapbox://styles/mapbox/dark-v11",
+        style: "mapbox://styles/mapbox/light-v11",
         center: [-73.935242, 40.730610],
         zoom: 11,
         pitch: 40,
@@ -126,34 +146,35 @@ const ChurnMap = () => {
         data: { type: "FeatureCollection", features: [] },
       });
 
-      // --- CAPA 1: HEATMAP (Solo brilla debajo de los ROJOS) ---
-      // Esto crea el efecto "zona infectada" sin ocultar los puntos
+      // --- CAPA 1: HEATMAP (Zonas de riesgo alto) ---
+      // Visualiza concentración de clientes de alto riesgo
       map.current?.addLayer({
         id: "churn-heat",
         type: "heatmap",
         source: "customers",
         maxzoom: 15,
         paint: {
-          // Solo los High Risk (mag=1) generan brillo
+          // Solo los High Risk (mag=1) generan calor
           "heatmap-weight": [
             "interpolate", ["linear"], ["get", "mag"],
-            0, 0,    // Verde no brilla
-            0.5, 0,  // Amarillo no brilla
-            1, 1     // Rojo SÍ brilla mucho
+            0, 0,    // Bajo riesgo no genera calor
+            0.5, 0.3,  // Riesgo medio genera poco
+            1, 1     // Alto riesgo genera mucho calor
           ],
-          "heatmap-intensity": 1.2,
+          "heatmap-intensity": 1.0,
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
             0, "rgba(0,0,0,0)",
-            0.2, "rgba(251, 113, 133, 0.3)", // Resplandor rosado suave
-            1, "rgba(220, 38, 38, 0.8)"      // Núcleo rojo intenso
+            0.2, "rgba(252, 165, 165, 0.4)", // Rosa suave
+            0.5, "rgba(239, 68, 68, 0.5)",   // Rojo medio
+            1, "rgba(220, 38, 38, 0.7)"      // Rojo intenso
           ],
           "heatmap-radius": [
             "interpolate", ["linear"], ["zoom"],
             0, 2,
-            13, 30 // Manchas grandes y difusas
+            13, 25
           ],
-          "heatmap-opacity": 0.6 // Transparente para ver los puntos encima
+          "heatmap-opacity": 0.5
         },
       });
 
@@ -162,68 +183,69 @@ const ChurnMap = () => {
         id: "churn-point",
         type: "circle",
         source: "customers",
-        minzoom: 5, // ✅ AHORA VISIBLE DESDE LEJOS
+        minzoom: 5,
         paint: {
           // Tamaño dinámico: Pequeños de lejos, grandes de cerca
           "circle-radius": [
             "interpolate", ["linear"], ["zoom"],
-            10, 2,  // Puntos finos al ver toda la ciudad
-            13, 5,
-            16, 10
+            10, 3,  // Puntos visibles al ver toda la ciudad
+            13, 6,
+            16, 12
           ],
-          // Colores NEÓN Sólidos
+          // Colores profesionales que coinciden con la UI
           "circle-color": [
             "match",
             ["get", "risk"],
-            "High", "#ff2a2a",    // Rojo Láser
-            "Medium", "#fbbf24",  // Oro
-            "Low", "#00ff9d",     // Verde Matrix (Muy visible sobre oscuro)
-            "#ccc"
+            "High", "#dc2626",      // red-600
+            "Medium", "#f59e0b",    // amber-500
+            "Low", "#10b981",       // emerald-500
+            "#94a3b8"               // slate-400
           ],
-          "circle-stroke-color": "#0f172a", // Borde negro para separar puntos
-          "circle-stroke-width": 1,
-          "circle-opacity": 0.9 // Casi sólidos
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-opacity": 0.85
         },
       });
 
       // 🚀 Marcar el mapa como listo
       setMapReady(true);
-
-      // Intentar cargar datos si ya existen
-      updateMapData();
+      // ✅ updateMapData se llamará automáticamente vía useEffect cuando mapReady cambie
     });
   }, []);
 
   const updateMapData = () => {
-      if (!map.current || customers.length === 0) {
-        return;
-      }
+    if (!map.current || heatmapData.length === 0) {
+      return;
+    }
 
-      let filtered = customers;
-      if (activeCity) {
-        const config = LOCATIONS[activeCity];
-        filtered = customers.filter(c =>
-          Math.abs(c.lat - config.lat) < 0.5 &&
-          Math.abs(c.lng - config.lng) < 0.5
-        );
-      }
+    let filtered = heatmapData;
+    if (activeCity) {
+      const config = LOCATIONS[activeCity];
+      filtered = heatmapData.filter(point =>
+        Math.abs(point.latitude - config.lat) < 0.5 &&
+        Math.abs(point.longitude - config.lng) < 0.5
+      );
+    }
 
-      const geoJson: FeatureCollection = {
-        type: "FeatureCollection",
-        features: filtered.map((c) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [c.lng, c.lat] },
-          properties: {
-            risk: c.churnRisk,
-            mag: c.churnRisk === 'High' ? 1 : 0
-          },
-        })),
-      };
+    const geoJson: FeatureCollection = {
+      type: "FeatureCollection",
+      features: filtered.map((point) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
+        properties: {
+          risk: point.riskLevel,
+          mag: point.riskLevel === 'High' ? 1 : point.riskLevel === 'Medium' ? 0.5 : 0,
+          probability: point.churnProbability,
+          segment: point.segmento,
+          monthlyCharge: point.cargoMensual
+        },
+      })),
+    };
 
-      const source = map.current.getSource("customers") as mapboxgl.GeoJSONSource;
-      if (source) {
-        source.setData(geoJson);
-      }
+    const source = map.current.getSource("customers") as mapboxgl.GeoJSONSource;
+    if (source) {
+      source.setData(geoJson);
+    }
   };
 
   useEffect(() => {
@@ -232,7 +254,7 @@ const ChurnMap = () => {
     }
 
     updateMapData();
-  }, [customers, mapReady]);
+  }, [heatmapData, mapReady]);
 
   // useEffect separado solo para cambios de ciudad
   useEffect(() => {
@@ -240,9 +262,9 @@ const ChurnMap = () => {
 
     const config = LOCATIONS[activeCity];
     map.current.flyTo({
-        center: [config.lng, config.lat],
-        zoom: config.zoom,
-        speed: 1.5
+      center: [config.lng, config.lat],
+      zoom: config.zoom,
+      speed: 1.5
     });
   }, [activeCity, mapReady]);
 
@@ -254,57 +276,71 @@ const ChurnMap = () => {
   };
 
   return (
-    <div className="flex flex-col h-[600px] w-full bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl relative group">
-      
+    <div className="flex flex-col h-[600px] w-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xl relative">
+
       {/* Controles */}
-      <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 pointer-events-none">
-        <div className="bg-slate-900/90 backdrop-blur border border-slate-600 p-3 rounded-lg shadow-lg flex flex-col gap-3 w-48 pointer-events-auto">
-             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2">📍 Filtros</h4>
-             <div className="flex gap-2">
-                <select 
-                    value={selectedCountry}
-                    onChange={handleCountryChange}
-                    className="w-1/2 bg-slate-800 text-white border border-slate-600 rounded px-2 py-1.5 text-xs outline-none focus:border-green-500"
-                >
-                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select 
-                    value={activeCity || ""}
-                    onChange={(e) => setActiveCity(e.target.value)}
-                    className="w-1/2 bg-slate-800 text-white border border-slate-600 rounded px-2 py-1.5 text-xs outline-none focus:border-green-500"
-                >
-                    {Object.keys(LOCATIONS)
-                    .filter(city => !selectedCountry || LOCATIONS[city].country === selectedCountry)
-                    .map(city => <option key={city} value={city}>{city}</option>)}
-                </select>
-             </div>
+      <div className="absolute top-4 left-4 z-10 flex flex-col gap-3 pointer-events-none">
+        <div className="bg-white/95 backdrop-blur border border-slate-200 p-4 rounded-xl shadow-lg flex flex-col gap-3 w-56 pointer-events-auto">
+          <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide border-b border-slate-200 pb-2">📍 Ubicación</h4>
+          <div className="flex gap-2">
+            <select
+              value={selectedCountry}
+              onChange={handleCountryChange}
+              className="w-1/2 bg-slate-50 text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+            >
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select
+              value={activeCity || ""}
+              onChange={(e) => setActiveCity(e.target.value)}
+              className="w-1/2 bg-slate-50 text-slate-700 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+            >
+              {Object.keys(LOCATIONS)
+                .filter(city => !selectedCountry || LOCATIONS[city].country === selectedCountry)
+                .map(city => <option key={city} value={city}>{city}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Leyenda Simple */}
-        <div className="bg-slate-900/90 backdrop-blur border border-slate-600 p-3 rounded-lg shadow-lg w-48 pointer-events-auto">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Estado de Clientes</h4>
-            <div className="grid grid-cols-1 gap-2">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#ff2a2a] shadow-[0_0_8px_#ff2a2a]"></div>
-                    <span className="text-[10px] text-slate-300">Riesgo Crítico (Bronx)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#fbbf24]"></div>
-                    <span className="text-[10px] text-slate-300">Riesgo Medio (Competencia)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#00ff9d]"></div>
-                    <span className="text-[10px] text-slate-300">Seguro (VIP)</span>
-                </div>
+        {/* Leyenda con Thresholds */}
+        <div className="bg-white/95 backdrop-blur border border-slate-200 p-4 rounded-xl shadow-lg w-64 pointer-events-auto">
+          <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 border-b border-slate-200 pb-2">🎯 Nivel de Riesgo</h4>
+          <div className="grid grid-cols-1 gap-2.5">
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full bg-red-600 shadow-sm mt-0.5"></div>
+              <div className="flex-1">
+                <span className="text-sm text-slate-900 font-bold block">Alto (70-99%)</span>
+                <span className="text-xs text-slate-600">CRÍTICO - Va a irse</span>
+              </div>
             </div>
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm mt-0.5"></div>
+              <div className="flex-1">
+                <span className="text-sm text-slate-900 font-bold block">Medio (30-70%)</span>
+                <span className="text-xs text-slate-600">Requiere atención</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm mt-0.5"></div>
+              <div className="flex-1">
+                <span className="text-sm text-slate-900 font-bold block">Bajo (0-30%)</span>
+                <span className="text-xs text-slate-600">Cliente estable</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-200">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              <strong className="text-slate-700">100% =</strong> Ya abandonó (churn histórico)
+            </p>
+          </div>
         </div>
       </div>
 
       <div ref={mapContainer} className="flex-grow w-full relative" />
-      
+
       {loading && (
-        <div className="absolute inset-0 bg-slate-900/90 flex items-center justify-center z-20">
-            <div className="text-green-400 font-mono text-xs animate-pulse">CARGANDO MAPA...</div>
+        <div className="absolute inset-0 bg-white/95 flex items-center justify-center z-20 backdrop-blur-sm">
+          <div className="text-indigo-600 font-semibold text-sm animate-pulse">Cargando mapa...</div>
         </div>
       )}
     </div>

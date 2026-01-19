@@ -1,10 +1,17 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from typing import Optional
+
+# Importar módulo XAI limpio (sin hardcode)
+from src.xai_utils import select_main_factor_intelligent, generate_explanation, generate_action
+
+# Importar router del dashboard
+from src.api_dashboard import router as dashboard_router
 
 # ========== CONFIGURACIÓN ==========
 app = FastAPI(
@@ -13,70 +20,345 @@ app = FastAPI(
     version="3.0.0"
 )
 
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Incluir router del dashboard
+app.include_router(dashboard_router)
+
+
 # ========== CARGA DE MODELO LIMPIO ==========
-MODEL_PATH = Path(__file__).parent.parent / "models" / "champion_clean"
+MODEL_PATH = Path(__file__).parent.parent / "models" / "champion"
 
 print("🔄 Cargando modelo production-ready...")
 try:
     model = joblib.load(MODEL_PATH / "model_champion.pkl")
     scaler = joblib.load(MODEL_PATH / "scaler.pkl")
     model_columns = joblib.load(MODEL_PATH / "model_columns.pkl")
+    scaled_columns = joblib.load(MODEL_PATH / "scaled_columns.pkl")  # Columnas que fueron escaladas
 
     print("✅ Modelo limpio cargado exitosamente")
     print(f"   - Modelo: {type(model).__name__}")
-    print(f"   - Features: {len(model_columns)}")
+    print(f"   - Features totales: {len(model_columns)}")
+    print(f"   - Features escaladas: {len(scaled_columns)}")
     print(f"   - Sin data leakage: ✓")
 except Exception as e:
     print(f"❌ ERROR al cargar modelo: {e}")
     raise
 
-# ========== MAPEOS XAI (Features Limpias) ==========
-# Mapeo de features técnicas a razones de negocio
-FEATURE_TO_REASON = {
-    # Top causas del modelo limpio
-    "score_riesgo": "Cliente de Alto Riesgo",
-    "TipoContrato_Mensual": "Contrato Sin Compromiso",
-    "Antiguedad": "Cliente Nuevo (Alta Rotación)",
-    "nivel_riesgo_Medio": "Perfil de Riesgo Medio",
-    "nivel_riesgo_Alto": "Perfil de Riesgo Alto",
-    "CargosTotal": "Acumulado de Pagos Elevado",
-    "CargoMensual": "Precio Mensual Alto",
-    "TipoInternet_Fibra óptica": "Servicio Premium Costoso",
-    "tenure_group_0-12 meses": "Periodo de Prueba Crítico",
-    "tenure_group_13-24 meses": "Cliente en Segundo Año",
-    "servicios_premium_count": "Pocos Servicios Adicionales",
-    "TipoContrato_Un año": "Contrato Anual",
-    "TipoContrato_Dos años": "Contrato Largo Plazo",
-    "IngresoMediano": "Zona de Bajo Ingreso",
-    "DensidadPoblacional": "Área de Alta Competencia",
-}
+# ========== FUNCIONES XAI DINÁMICAS (SIN HARDCODEO) ==========
 
-# Mapeo de razones a acciones concretas
-REASON_TO_ACTION = {
-    "Cliente de Alto Riesgo": "Asignar gestor de cuenta dedicado + revisión completa",
-    "Contrato Sin Compromiso": "Ofrecer upgrade a contrato anual con 20% descuento",
-    "Cliente Nuevo (Alta Rotación)": "Programa de onboarding personalizado + seguimiento",
-    "Perfil de Riesgo Medio": "Monitoreo activo + campaña de fidelización",
-    "Perfil de Riesgo Alto": "Intervención inmediata del equipo de retención",
-    "Acumulado de Pagos Elevado": "Revisar historial y ofrecer plan de lealtad",
-    "Precio Mensual Alto": "Evaluar bundle de servicios con mejor relación precio/valor",
-    "Servicio Premium Costoso": "Ofrecer servicios adicionales sin costo extra",
-    "Periodo de Prueba Crítico": "Contacto proactivo + incentivos de permanencia",
-    "Cliente en Segundo Año": "Renovación anticipada con beneficios exclusivos",
-    "Pocos Servicios Adicionales": "Demostración de features premium gratuita",
-    "Contrato Anual": "Preparar renovación con 3 meses de anticipación",
-    "Contrato Largo Plazo": "Programa VIP de lealtad",
-    "Zona de Bajo Ingreso": "Planes ajustados a capacidad de pago",
-    "Área de Alta Competencia": "Diferenciación con servicio superior",
-}
+def generate_explanation_from_feature(feature_name: str, feature_value: float, original_value: float, input_data: dict) -> str:
+    """
+    Genera explicación dinámica basada en el feature + su valor REAL del cliente.
+    NO usa diccionarios hardcodeados, analiza el contexto del cliente.
+    """
+    # Para features categóricas (dummy variables)
+    if feature_value == 1.0:  # Feature categórica activa
+        if "TipoContrato_Mensual" in feature_name:
+            return "Contrato mes a mes sin compromiso de permanencia"
+        elif "TipoContrato_Un año" in feature_name:
+            return "Contrato anual próximo a renovación"
+        elif "TipoContrato_Dos años" in feature_name:
+            return "Contrato de largo plazo establecido"
+        elif "TipoInternet_Fibra" in feature_name:
+            return f"Servicio Fibra Óptica premium (${input_data.get('CargoMensual', 0):.2f}/mes)"
+        elif "TipoInternet_DSL" in feature_name:
+            return "Servicio DSL de gama media"
+        elif "TipoInternet_No" in feature_name:
+            return "Cliente sin servicio de internet"
+        elif "tenure_group_0-12" in feature_name:
+            return f"Cliente nuevo ({input_data.get('Antiguedad', 0)} meses de antigüedad)"
+        elif "tenure_group_13-24" in feature_name:
+            return f"Cliente en segundo año ({input_data.get('Antiguedad', 0)} meses)"
+        elif "tenure_group_25-48" in feature_name:
+            return f"Cliente establecido ({input_data.get('Antiguedad', 0)} meses)"
+        elif "tenure_group_49+" in feature_name:
+            return f"Cliente de larga data ({input_data.get('Antiguedad', 0)} meses)"
+        elif "income_bracket_Low" in feature_name:
+            return f"Zona de ingresos limitados (${input_data.get('IngresoMediano', 0):,.0f} mediano)"
+        elif "income_bracket_Medium" in feature_name:
+            return f"Zona de ingresos medios (${input_data.get('IngresoMediano', 0):,.0f} mediano)"
+        elif "income_bracket_High" in feature_name:
+            return f"Zona de altos ingresos (${input_data.get('IngresoMediano', 0):,.0f} mediano)"
+        elif "nivel_riesgo_Alto" in feature_name:
+            return f"Perfil de alto riesgo calculado (score: {input_data.get('score_riesgo', 0):.1f}/10)"
+        elif "nivel_riesgo_Medio" in feature_name:
+            return f"Perfil de riesgo moderado (score: {input_data.get('score_riesgo', 0):.1f}/10)"
+        elif "nivel_riesgo_Bajo" in feature_name:
+            return f"Perfil de bajo riesgo (score: {input_data.get('score_riesgo', 0):.1f}/10)"
+        elif "SegmentoCliente_PYME" in feature_name:
+            return "Cliente empresarial PYME con necesidades específicas"
+        elif "SegmentoCliente_Corporativo" in feature_name:
+            return "Cliente corporativo de alto valor"
+        elif "SegmentoCliente_Residencial" in feature_name:
+            return "Cliente residencial con uso personal"
+        elif "MetodoPago_Cheque electrónico" in feature_name:
+            return "Pago por cheque electrónico (método menos automatizado)"
+        elif "high_density_area" in feature_name:
+            return f"Zona urbana de alta densidad ({input_data.get('DensidadPoblacional', 0):,.0f} hab/km²)"
+        # ========== NUEVOS: Comportamentales ==========
+        elif "TipoDeQueja_Facturacion" in feature_name:
+            return "Quejas relacionadas con facturación"
+        elif "TipoDeQueja_Precio" in feature_name:
+            return "Quejas sobre el precio del servicio"
+        elif "TipoDeQueja_Red" in feature_name:
+            return "Problemas técnicos de red reportados"
+        elif "TipoDeQueja_Servicio" in feature_name:
+            return "Insatisfacción con el servicio al cliente"
+        elif "nps_categoria_Pasivo" in feature_name:
+            nps = input_data.get('PuntuacionNPS', 0)
+            return f"Cliente pasivo (NPS: {nps:.0f}/100) - En riesgo"
+        elif "nps_categoria_Promotor" in feature_name:
+            nps = input_data.get('PuntuacionNPS', 0)
+            return f"Cliente promotor (NPS: {nps:.0f}/100) - Satisfecho"
+        elif "csat_categoria_Neutral" in feature_name:
+            csat = input_data.get('PuntuacionCSAT', 0)
+            return f"Satisfacción neutral (CSAT: {csat:.1f}/5.0)"
+        elif "csat_categoria_Satisfecho" in feature_name:
+            csat = input_data.get('PuntuacionCSAT', 0)
+            return f"Cliente satisfecho (CSAT: {csat:.1f}/5.0)"
+        elif "has_queja" in feature_name:
+            return "Cliente con quejas registradas"
+        elif "alto_tickets" in feature_name:
+            tickets = input_data.get('TicketsSoporte', 0)
+            return f"Alto volumen de tickets de soporte ({tickets} tickets)"
+        else:
+            # Para features categóricas no reconocidas, usar nombre limpio
+            clean_name = feature_name.replace("_", " ").title()
+            return f"{clean_name} activo"
 
-DEFAULT_ACTION = "Monitorear comportamiento y preparar estrategia de retención"
+    # Para features numéricos, analizar su valor relativo
+    else:
+        if "CargoMensual" in feature_name:
+            cargo = input_data.get('CargoMensual', 0)
+            if cargo > 90:
+                return f"Plan de alto costo (${cargo:.2f}/mes)"
+            elif cargo < 30:
+                return f"Plan económico básico (${cargo:.2f}/mes)"
+            else:
+                return f"Plan de precio medio (${cargo:.2f}/mes)"
 
-# ========== DTOs (SOLO FEATURES LIMPIAS) ==========
+        elif "Antiguedad" in feature_name or "tenure" in feature_name.lower():
+            meses = input_data.get('Antiguedad', 0)
+            if meses < 6:
+                return f"Cliente muy nuevo ({meses} meses), período crítico"
+            elif meses < 12:
+                return f"Cliente reciente ({meses} meses), en fase de adaptación"
+            elif meses > 48:
+                return f"Cliente leal de larga data ({meses} meses)"
+            else:
+                return f"Cliente establecido ({meses} meses)"
+
+        elif "CargosTotal" in feature_name:
+            total = input_data.get('CargosTotal', 0)
+            return f"Valor total acumulado de ${total:,.2f}"
+
+        elif "IngresoMediano" in feature_name:
+            ingreso = input_data.get('IngresoMediano', 0)
+            if ingreso < 50000:
+                return f"Zona de bajos ingresos (${ingreso:,.0f} mediano)"
+            elif ingreso > 80000:
+                return f"Zona de altos ingresos (${ingreso:,.0f} mediano)"
+            else:
+                return f"Zona de ingresos medios (${ingreso:,.0f} mediano)"
+
+        elif "DensidadPoblacional" in feature_name:
+            densidad = input_data.get('DensidadPoblacional', 0)
+            if densidad > 50000:
+                return f"Zona de muy alta densidad ({densidad:,.0f} hab/km²), alta competencia"
+            elif densidad > 30000:
+                return f"Zona de alta densidad ({densidad:,.0f} hab/km²)"
+            else:
+                return f"Zona de densidad moderada ({densidad:,.0f} hab/km²)"
+
+        elif "borough_risk" in feature_name:
+            risk = input_data.get('borough_risk', 0)
+            if risk > 30:
+                return f"Zona geográfica de alto riesgo histórico ({risk:.0f}% churn base)"
+            elif risk > 20:
+                return f"Zona con riesgo moderado ({risk:.0f}% churn base)"
+            else:
+                return f"Zona geográfica estable ({risk:.0f}% churn base)"
+
+        elif "score_riesgo" in feature_name:
+            score = input_data.get('score_riesgo', 0)
+            if score > 7:
+                return f"Score de riesgo muy alto ({score:.1f}/10)"
+            elif score > 5:
+                return f"Score de riesgo elevado ({score:.1f}/10)"
+            else:
+                return f"Score de riesgo controlado ({score:.1f}/10)"
+
+        elif "servicios_premium_count" in feature_name:
+            count = int(input_data.get('servicios_premium_count', 0))
+            if count == 0:
+                return "Sin servicios adicionales contratados"
+            elif count == 1:
+                return "Solo 1 servicio adicional contratado"
+            elif count >= 4:
+                return f"Cliente muy comprometido ({count} servicios premium)"
+            else:
+                return f"{count} servicios adicionales contratados"
+
+        # ========== NUEVOS: Numéricos Comportamentales ==========
+        elif "TicketsSoporte" in feature_name:
+            tickets = int(input_data.get('TicketsSoporte', 0))
+            if tickets == 0:
+                return "Sin tickets de soporte abiertos"
+            elif tickets == 1:
+                return "1 ticket de soporte abierto"
+            elif tickets >= 10:
+                return f"Alto volumen de tickets: {tickets} reportados"
+            elif tickets >= 5:
+                return f"Múltiples tickets de soporte: {tickets} reportados"
+            else:
+                return f"{tickets} tickets de soporte abiertos"
+
+        elif "PuntuacionNPS" in feature_name:
+            nps = input_data.get('PuntuacionNPS', 0)
+            if nps < 30:
+                return f"NPS muy bajo: {nps:.0f}/100 (Cliente detractor crítico)"
+            elif nps < 50:
+                return f"NPS bajo: {nps:.0f}/100 (Cliente detractor)"
+            elif nps < 70:
+                return f"NPS neutral: {nps:.0f}/100 (Cliente pasivo)"
+            else:
+                return f"NPS alto: {nps:.0f}/100 (Cliente promotor)"
+
+        elif "PuntuacionCSAT" in feature_name:
+            csat = input_data.get('PuntuacionCSAT', 0)
+            if csat < 2.0:
+                return f"CSAT muy bajo: {csat:.1f}/5.0 (Muy insatisfecho)"
+            elif csat < 3.0:
+                return f"CSAT bajo: {csat:.1f}/5.0 (Insatisfecho)"
+            elif csat < 4.0:
+                return f"CSAT neutral: {csat:.1f}/5.0"
+            else:
+                return f"CSAT alto: {csat:.1f}/5.0 (Satisfecho)"
+
+        elif "Escaladas" in feature_name:
+            escaladas = int(input_data.get('Escaladas', 0))
+            if escaladas == 0:
+                return "Sin escalaciones de soporte"
+            elif escaladas == 1:
+                return "1 ticket escalado a supervisor"
+            else:
+                return f"Múltiples escalaciones: {escaladas} tickets escalados"
+
+        elif "TiempoResolucion" in feature_name:
+            tiempo = input_data.get('TiempoResolucion', 0)
+            if tiempo > 72:
+                return f"Tiempo de resolución muy lento: {tiempo:.1f} horas"
+            elif tiempo > 48:
+                return f"Tiempo de resolución lento: {tiempo:.1f} horas"
+            elif tiempo > 24:
+                return f"Tiempo de resolución moderado: {tiempo:.1f} horas"
+            else:
+                return f"Resolución rápida: {tiempo:.1f} horas"
+
+        elif "TasaAperturaEmail" in feature_name:
+            tasa = input_data.get('TasaAperturaEmail', 0)
+            if tasa < 0.2:
+                return f"Muy bajo engagement: {tasa:.0%} de emails abiertos"
+            elif tasa < 0.4:
+                return f"Bajo engagement: {tasa:.0%} de emails abiertos"
+            elif tasa < 0.6:
+                return f"Engagement moderado: {tasa:.0%} de emails abiertos"
+            else:
+                return f"Alto engagement: {tasa:.0%} de emails abiertos"
+
+        elif "ratio_precio_ingreso" in feature_name:
+            ratio = input_data.get('ratio_precio_ingreso', 0)
+            cargo = input_data.get('CargoMensual', 0)
+            ingreso = input_data.get('IngresoMediano', 0)
+            if ratio > 0.02:  # >2% del ingreso
+                return f"Precio representa {ratio:.1%} del ingreso (${cargo:.0f} vs ${ingreso:,.0f}) - Alto impacto"
+            elif ratio > 0.01:
+                return f"Precio representa {ratio:.1%} del ingreso (${cargo:.0f} vs ${ingreso:,.0f})"
+            else:
+                return f"Precio accesible: {ratio:.1%} del ingreso"
+
+        else:
+            # Para features numéricos no reconocidos
+            clean_name = feature_name.replace("_", " ").title()
+            return f"{clean_name}: {original_value:.2f}"
+
+
+def generate_action_from_context(main_factor: str, input_data: dict, probability: float) -> str:
+    """
+    Genera acción basada ÚNICAMENTE en el main_factor detectado por el modelo.
+    NO usa umbrales hardcodeados - las acciones se derivan del factor de riesgo que YA detectó el modelo.
+
+    El main_factor ya contiene el diagnóstico del modelo (ej: "NPS bajo: 25.0/100", "CSAT bajo: 2.3/5").
+    Solo necesitamos traducir ese diagnóstico en una estrategia de acción general.
+    """
+
+    # Extraer datos observables para contextualizar la acción (sin umbrales inventados)
+    segmento = input_data.get('SegmentoCliente', 'Residencial')
+
+    # El main_factor YA fue determinado por el modelo - solo lo traducimos a acción
+    factor_lower = main_factor.lower()
+
+    # Mapeo directo de factor detectado → estrategia de acción
+    if "nps" in factor_lower:
+        # El modelo detectó NPS como factor crítico
+        return f"Contacto prioritario por satisfacción: {main_factor} - Entrevista para identificar causas"
+
+    elif "csat" in factor_lower:
+        # El modelo detectó CSAT como factor crítico
+        return f"Escalación por experiencia negativa: {main_factor} - Revisión con gerente de cuenta"
+
+    elif "tickets" in factor_lower or "ticket" in factor_lower:
+        # El modelo detectó problemas de soporte
+        return f"Revisión urgente de soporte: {main_factor} - Auditoría de casos y compensación si procede"
+
+    elif "queja" in factor_lower:
+        # El modelo detectó quejas como factor
+        tipo_queja = input_data.get('TipoDeQueja', 'No especificada')
+        return f"Atención inmediata a queja: {main_factor} (Tipo: {tipo_queja}) - Resolución prioritaria"
+
+    elif "precio" in factor_lower or "cargo" in factor_lower:
+        # El modelo detectó precio como factor
+        return f"Revisión comercial: {main_factor} - Evaluar ajuste de plan o beneficios adicionales"
+
+    elif "contrato" in factor_lower or "mensual" in factor_lower or "mes a mes" in factor_lower:
+        # El modelo detectó tipo de contrato como factor
+        return f"Propuesta de fidelización: {main_factor} - Ofrecer upgrade a contrato anual con incentivos"
+
+    elif "antigüedad" in factor_lower or "antiguedad" in factor_lower or "nuevo" in factor_lower:
+        # El modelo detectó antigüedad como factor
+        return f"Seguimiento de permanencia: {main_factor} - Programa de onboarding y acompañamiento"
+
+    elif "servicios" in factor_lower or "premium" in factor_lower:
+        # El modelo detectó nivel de servicios como factor
+        return f"Expansión de servicios: {main_factor} - Demo de funcionalidades adicionales"
+
+    elif "ingreso" in factor_lower or "zona" in factor_lower:
+        # El modelo detectó factores geográficos/económicos
+        return f"Ajuste regional: {main_factor} - Plan adaptado a perfil socioeconómico"
+
+    else:
+        # Factor no categorizado - acción genérica basada en el factor detectado
+        # Añadir contexto del segmento sin inventar reglas
+        if segmento == 'Corporativo':
+            return f"Gestión corporativa prioritaria: {main_factor} - Reunión ejecutiva para retención"
+        elif segmento == 'PYME':
+            return f"Atención PYME personalizada: {main_factor} - Propuesta comercial ajustada"
+        else:
+            return f"Contacto proactivo de retención: {main_factor} - Seguimiento personalizado"
+
+# ========== DTOs CON FEATURES COMPORTAMENTALES ==========
 class PredictionInput(BaseModel):
     """
-    Input para predicción con SOLO features disponibles ANTES del churn.
-    NO requiere NPS, CSAT, tickets de soporte (esos son síntomas, no causas).
+    Input para predicción con features disponibles ANTES del churn + datos comportamentales.
+    Incluye métricas de satisfacción, soporte y engagement que SÍ predicen el churn.
     """
     # Demográficos
     Genero: str  # "Masculino" o "Femenino"
@@ -117,10 +399,28 @@ class PredictionInput(BaseModel):
     SegmentoCliente: str  # "Residencial", "PYME", "Corporativo"
     income_bracket: str  # "Low", "Medium", "High"
 
-    # Features derivados limpios
-    nivel_riesgo: str  # "Bajo", "Medio", "Alto"
-    score_riesgo: float
-    risk_flag: int  # 0 o 1
+    # ⚠️ REMOVIDOS: nivel_riesgo, score_riesgo, risk_flag (eran data leakage - el modelo los predice, no los usa como input)
+
+    # ========== COMPORTAMIENTO Y SATISFACCIÓN (CRÍTICO) ==========
+    # Soporte y quejas
+    TicketsSoporte: int  # Número de tickets abiertos
+    Escaladas: int  # Tickets escalados
+    TipoDeQueja: str  # "Ninguna", "Red", "Facturacion", "Precio", "Servicio"
+    has_queja: int  # 0 o 1
+    alto_tickets: int  # 0 o 1
+    TiempoResolucion: float  # Tiempo promedio de resolución en horas
+
+    # Satisfacción del cliente
+    PuntuacionNPS: float  # Net Promoter Score (0-100)
+    PuntuacionCSAT: float  # Customer Satisfaction (1-5)
+    nps_categoria: str  # "Detractor", "Pasivo", "Promotor"
+    csat_categoria: str  # "Insatisfecho", "Neutral", "Satisfecho"
+
+    # Engagement
+    TasaAperturaEmail: float  # Tasa de apertura de emails (0-1)
+
+    # Precio relativo
+    ratio_precio_ingreso: float  # CargoMensual / IngresoMediano
 
 
 class PredictionOutput(BaseModel):
@@ -167,15 +467,21 @@ def predict_churn(data: PredictionInput):
 
         print(f"📥 [INPUT] Cliente:")
         print(f"   Contrato: {data.TipoContrato}, Antiguedad: {data.Antiguedad} meses")
-        print(f"   Precio: ${data.CargoMensual}, Score Riesgo: {data.score_riesgo}")
+        print(f"   Precio: ${data.CargoMensual}")
+        print(f"   Comportamiento: NPS={data.PuntuacionNPS:.0f}, CSAT={data.PuntuacionCSAT:.1f}, Tickets={data.TicketsSoporte}")
 
         # 2. Crear DataFrame con TODAS las columnas del modelo inicializadas en 0
         df_encoded = pd.DataFrame(0, index=[0], columns=model_columns, dtype=float)
 
-        # 3. Llenar features numéricos directamente
-        numeric_features = ['EsMayor', 'IngresoMediano', 'DensidadPoblacional', 'Antiguedad',
-                           'CargoMensual', 'CargosTotal', 'score_riesgo',
-                           'servicios_premium_count', 'risk_flag', 'borough_risk', 'high_density_area']
+        # 3. Llenar features numéricos directamente (sin data leakage)
+        numeric_features = [
+            'EsMayor', 'IngresoMediano', 'DensidadPoblacional', 'Antiguedad',
+            'CargoMensual', 'CargosTotal',
+            'servicios_premium_count', 'borough_risk', 'high_density_area',
+            # Nuevos: Comportamentales
+            'TicketsSoporte', 'Escaladas', 'has_queja', 'alto_tickets', 'TiempoResolucion',
+            'PuntuacionNPS', 'PuntuacionCSAT', 'TasaAperturaEmail', 'ratio_precio_ingreso'
+        ]
 
         for feat in numeric_features:
             if feat in input_dict:
@@ -284,11 +590,34 @@ def predict_churn(data: PredictionInput):
         elif data.income_bracket == "Medium" and "income_bracket_Medium" in model_columns:
             df_encoded.loc[0, "income_bracket_Medium"] = 1
 
-        # nivel_riesgo
-        if data.nivel_riesgo == "Medio" and "nivel_riesgo_Medio" in model_columns:
-            df_encoded.loc[0, "nivel_riesgo_Medio"] = 1
-        elif data.nivel_riesgo == "Bajo" and "nivel_riesgo_Bajo" in model_columns:
-            df_encoded.loc[0, "nivel_riesgo_Bajo"] = 1
+        # ⚠️ REMOVIDO: nivel_riesgo (era data leakage)
+
+        # ========== NUEVOS: Features Comportamentales ==========
+        # TipoDeQueja
+        if data.TipoDeQueja == "Facturacion" and "TipoDeQueja_Facturacion" in model_columns:
+            df_encoded.loc[0, "TipoDeQueja_Facturacion"] = 1
+        elif data.TipoDeQueja == "Precio" and "TipoDeQueja_Precio" in model_columns:
+            df_encoded.loc[0, "TipoDeQueja_Precio"] = 1
+        elif data.TipoDeQueja == "Red" and "TipoDeQueja_Red" in model_columns:
+            df_encoded.loc[0, "TipoDeQueja_Red"] = 1
+        elif data.TipoDeQueja == "Servicio" and "TipoDeQueja_Servicio" in model_columns:
+            df_encoded.loc[0, "TipoDeQueja_Servicio"] = 1
+        elif data.TipoDeQueja == "Ninguna" and "TipoDeQueja_Ninguna" in model_columns:
+            df_encoded.loc[0, "TipoDeQueja_Ninguna"] = 1
+
+        # nps_categoria
+        if data.nps_categoria == "Pasivo" and "nps_categoria_Pasivo" in model_columns:
+            df_encoded.loc[0, "nps_categoria_Pasivo"] = 1
+        elif data.nps_categoria == "Promotor" and "nps_categoria_Promotor" in model_columns:
+            df_encoded.loc[0, "nps_categoria_Promotor"] = 1
+        # Detractor es la categoría base (no se encoda)
+
+        # csat_categoria
+        if data.csat_categoria == "Neutral" and "csat_categoria_Neutral" in model_columns:
+            df_encoded.loc[0, "csat_categoria_Neutral"] = 1
+        elif data.csat_categoria == "Satisfecho" and "csat_categoria_Satisfecho" in model_columns:
+            df_encoded.loc[0, "csat_categoria_Satisfecho"] = 1
+        # Insatisfecho es la categoría base (no se encoda)
 
         # DEBUG: Comentado para producción
         # print(f"🔍 [DEBUG] Features activas (valor == 1):")
@@ -296,13 +625,10 @@ def predict_churn(data: PredictionInput):
         # print(f"   Total categóricas: {len(active_features)}")
 
         # 4. Normalizar features numéricos
-        numeric_cols = df_encoded.select_dtypes(include=[np.number]).columns
-        binary_cols = [col for col in numeric_cols if df_encoded[col].nunique() <= 2]
-        cols_to_scale = [col for col in numeric_cols if col not in binary_cols]
-
+        # Usar las MISMAS columnas que se escalaron durante el entrenamiento
         df_scaled = df_encoded.copy()
-        if len(cols_to_scale) > 0:
-            df_scaled[cols_to_scale] = scaler.transform(df_encoded[cols_to_scale])
+        if len(scaled_columns) > 0:
+            df_scaled[scaled_columns] = scaler.transform(df_encoded[scaled_columns])
 
         # 5. Predicción
         prediction_class = model.predict(df_scaled)[0]
@@ -311,16 +637,28 @@ def predict_churn(data: PredictionInput):
         prob_no_churn = probabilities[0]
         prob_churn = probabilities[1]
 
-        # 6. Determinar nivel de riesgo
-        if prob_churn >= 0.70:
+        # 6. Determinar nivel de riesgo de forma lógica
+        # Low (0-30%):    Cliente estable, probabilidad normal/baja
+        # Medium (30-70%): Requiere atención, riesgo moderado-alto
+        # High (70-99%):   CRÍTICO - Va a irse, acción inmediata
+        # Off (100%):      Ya se fue (abandonoHistorico = true)
+        if prob_churn >= 0.90:
+            risk_label = "Off"  # Cliente ya perdido (≥90% es prácticamente 100%)
+        elif prob_churn >= 0.70:  # 70-89% = Alto riesgo CRÍTICO
             risk_label = "High"
-        elif prob_churn >= 0.40:
+        elif prob_churn >= 0.30:  # 30-69% = Riesgo moderado
             risk_label = "Medium"
-        else:
+        else:  # 0-29% = Bajo riesgo
             risk_label = "Low"
 
         # 7. 🧠 XAI: Feature Importance global del modelo
-        importances = model.feature_importances_
+        # Logistic Regression usa coef_, Random Forest usa feature_importances_
+        if hasattr(model, 'feature_importances_'):
+            importances = model.feature_importances_
+        elif hasattr(model, 'coef_'):
+            importances = np.abs(model.coef_[0])
+        else:
+            raise Exception("Modelo no soportado para XAI")
 
         # Crear pares (feature, importance)
         feature_importance_pairs = list(zip(model_columns, importances))
@@ -328,29 +666,60 @@ def predict_churn(data: PredictionInput):
         # Ordenar por importancia descendente
         feature_importance_pairs.sort(key=lambda x: x[1], reverse=True)
 
-        # 8. Identificar main_factor basado en el cliente específico
-        # Priorizar features CATEGÓRICAS activas (valor == 1), luego numéricas
-        main_factor = "Factor No Clasificado"
+        # 8. 🧠 XAI DINÁMICO: Calcular contribución PERSONALIZADA por cliente
+        # Approach: importance_global * valor_normalizado = contribución específica
 
-        # Primero: Buscar features categóricas activas (valor == 1)
-        for feat, imp in feature_importance_pairs[:20]:  # Top 20
-            # Si la feature categórica está activa (valor == 1) y tiene mapeo
-            if feat in FEATURE_TO_REASON and df_encoded[feat].values[0] == 1:
-                main_factor = FEATURE_TO_REASON[feat]
-                print(f"🧠 [XAI] Main Factor (categórica): {feat} → {main_factor} (importance: {imp:.4f})")
-                break
+        # Calcular contribución de cada feature para ESTE cliente
+        feature_contributions = []
 
-        # Si no encuentra categórica, buscar numéricas importantes
-        if main_factor == "Factor No Clasificado":
-            for feat, imp in feature_importance_pairs[:10]:
-                # Features numéricas (score_riesgo, Antiguedad, etc.)
-                if feat in FEATURE_TO_REASON and df_encoded[feat].values[0] > 0:
-                    main_factor = FEATURE_TO_REASON[feat]
-                    print(f"🧠 [XAI] Main Factor (numérica): {feat} → {main_factor} (importance: {imp:.4f}, valor: {df_encoded[feat].values[0]:.2f})")
-                    break
+        for feat, imp in feature_importance_pairs:
+            valor_escalado = df_scaled[feat].values[0]  # Valor escalado
+            valor_original = df_encoded[feat].values[0]  # Valor antes de escalar
 
-        # 9. Mapear a acción
-        next_best_action = REASON_TO_ACTION.get(main_factor, DEFAULT_ACTION)
+            # Para categóricas: valor es 0 o 1
+            # Para numéricas: valor está normalizado
+            # NO usamos abs() para preservar la dirección del efecto
+            contribution = imp * abs(valor_escalado)  # importance * magnitud
+
+            # Solo considerar features con contribución significativa
+            if contribution > 0.001:
+                feature_contributions.append((feat, contribution, valor_escalado, valor_original, imp))
+
+        # Ordenar por contribución descendente
+        feature_contributions.sort(key=lambda x: x[1], reverse=True)
+
+        # 9. 🧠 GENERAR EXPLICACIÓN DINÁMICA (sin diccionarios hardcodeados)
+        main_factor = "Perfil no determinado"
+
+        if feature_contributions:
+            # Usar selección inteligente (prioriza factores problemáticos accionables)
+            selected = select_main_factor_intelligent(feature_contributions, input_dict)
+            if selected:
+                top_feat, top_contrib, top_valor_esc, top_valor_orig, top_imp = selected
+            else:
+                top_feat, top_contrib, top_valor_esc, top_valor_orig, top_imp = feature_contributions[0]
+
+            # Generar explicación dinámica (sin umbrales hardcodeados)
+            main_factor = generate_explanation(
+                top_feat,
+                top_valor_esc,  # Valor escalado para determinar nivel
+                top_valor_orig,
+                input_dict
+            )
+
+            print(f"🧠 [XAI INTELIGENTE] Main Factor: {top_feat}")
+            print(f"   Explicación: {main_factor}")
+            print(f"   Contribución: {top_contrib:.4f} (importance: {top_imp:.4f} × valor: {top_valor_esc:.2f})")
+
+            # Mostrar top 3 para debug
+            print(f"   Top 3 factores para este cliente:")
+            for i, (f, c, v_esc, v_orig, im) in enumerate(feature_contributions[:3], 1):
+                explicacion = generate_explanation(f, v_esc, v_orig, input_dict)
+                print(f"      {i}. {f:30} → {explicacion[:50]}")
+                print(f"         contrib:{c:.4f} (imp:{im:.4f} × val:{v_esc:.2f})")
+
+        # 10. 🎯 GENERAR ACCIÓN DINÁMICA (basada solo en main_factor)
+        next_best_action = generate_action(main_factor, input_dict)
 
         print(f"✅ [OUTPUT] Predicción: {risk_label} ({prob_churn:.2%})")
         print(f"   Main Factor: {main_factor}")

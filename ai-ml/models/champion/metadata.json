@@ -1,31 +1,28 @@
 {
-  "model_name": "Logistic Regression",
-  "model_type": "logistic_regression",
-  "training_date": "2026-01-10 08:19:39",
-  "dataset_size": 7043,
-  "train_size": 4929,
-  "val_size": 1057,
-  "test_size": 1057,
-  "n_features": 56,
-  "hyperparameters": {
-    "C": 0.1,
-    "max_iter": 1000,
-    "penalty": "l2",
-    "solver": "lbfgs"
+  "model_name": "Random Forest",
+  "train_date": "2026-01-15 17:04:57",
+  "train_samples": 7760,
+  "test_samples": 1941,
+  "n_features": 60,
+  "metrics": {
+    "Accuracy": 0.970118495620814,
+    "Precision": 0.8446866485013624,
+    "Recall": 0.9967845659163987,
+    "F1-Score": 0.9144542772861357,
+    "ROC-AUC": 0.9977837176730515
   },
-  "performance_metrics": {
-    "auc_train": 0.9118,
-    "auc_val": 0.9088,
-    "precision_val": 0.7672,
-    "recall_val": 0.6335,
-    "f1_val": 0.6940,
-    "overfitting_auc": 0.003
-  },
-  "artifacts": {
-    "model_file": "logistic_regression.pkl",
-    "scaler_file": "scaler.pkl",
-    "label_encoder_file": "label_encoder.pkl"
-  },
-  "status": "production_ready",
-  "notes": "Modelo campeón seleccionado por mejor AUC (0.9088) y menor overfitting (0.3%). Superior a Random Forest en generalización."
+  "clean_features_only": true,
+  "leakage_removed": true,
+  "top_10_features": [
+    "PuntuacionNPS",
+    "TicketsSoporte",
+    "csat_categoria_Satisfecho",
+    "PuntuacionCSAT",
+    "alto_tickets",
+    "TasaAperturaEmail",
+    "TipoContrato_Mensual",
+    "has_queja",
+    "Antiguedad",
+    "CargosTotal"
+  ]
 }

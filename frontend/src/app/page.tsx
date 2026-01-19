@@ -1,553 +1,254 @@
-"use client";
+// Overview Dashboard - Página principal con KPIs ejecutivos y alertas críticas
+'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import { Customer } from '@/types/customer';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-
-// 🚀 Lazy loading del mapa - solo carga cuando se necesita
-const ChurnMap = dynamic(() => import('@/components/ChurnMap'), {
-  loading: () => (
-    <div className="h-[600px] w-full bg-slate-900 rounded-xl border border-slate-700 flex items-center justify-center">
-      <div className="text-green-400 font-mono text-xs animate-pulse">CARGANDO MAPA...</div>
-    </div>
-  ),
-  ssr: false // No renderizar en servidor (Mapbox solo funciona en cliente)
-});
-
-interface PredictionResult {
-  risk: 'High' | 'Medium' | 'Low';
-  probability: number;
-  main_factor?: string;        // 🧠 XAI: Factor principal
-  next_best_action?: string;   // 🎯 Acción recomendada
-}
+import KPICard from '@/components/KPICard';
+import PriorityInsights from '@/components/PriorityInsights';
+import { DollarSign, TrendingDown, Users, Star } from 'lucide-react';
 
 interface DashboardStats {
-  totalCustomers: number;
+  revenueAtRisk: number;
   churnRate: number;
-  totalRevenue: number;
-  churnRevenue: number;
+  customersAtRisk: number;
+  npsScore: number;
+  trends: {
+    revenue: number;
+    churn: number;
+    customers: number;
+    nps: number;
+  };
+}
+
+interface CriticalAlert {
+  type: string;
+  title: string;
+  description: string;
+  count: number;
+  severity: 'critical' | 'high' | 'medium';
+  actionLabel: string;
+  actionUrl: string;
 }
 
 export default function Home() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-
+  const [alerts, setAlerts] = useState<CriticalAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const [predictions, setPredictions] = useState<Record<string, PredictionResult>>({});
-  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
-
-  // 📑 Pestañas
-  const [activeTab, setActiveTab] = useState<'all' | 'at-risk' | 'analyzed'>('all');
-
-  // 🗺️ Control de visibilidad del mapa (Lazy Loading)
-  const [mapVisible, setMapVisible] = useState(false);
-  const [hasLoadedMap, setHasLoadedMap] = useState(false); // Track si se cargó alguna vez
-
-  // 🔍 Filtros y Paginación (Server-Side)
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCity, setFilterCity] = useState<string>('all');
-  const [filterSegment, setFilterSegment] = useState<string>('all');
-  const [filterRisk, setFilterRisk] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(0); // Backend usa índice 0
-  const [pageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-
-  // Fetch inicial de stats
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const statsRes = await fetch('http://localhost:8080/api/dashboard/stats');
-        if (!statsRes.ok) throw new Error('Error conectando con Java');
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      } catch (err) {
-        console.error(err);
-        setError('No se pudo conectar con el Backend. Revisa que Java esté corriendo en puerto 8080.');
-      }
-    };
-    fetchStats();
+    fetchDashboardStats();
+    fetchCriticalAlerts();
   }, []);
 
-  // Resetear página cuando cambia la pestaña
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [activeTab]);
-
-  // 🗺️ Marcar que el mapa se cargó por primera vez
-  useEffect(() => {
-    if (mapVisible && !hasLoadedMap) {
-      setHasLoadedMap(true);
-    }
-  }, [mapVisible, hasLoadedMap]);
-
-  // 📜 Preservar posición del scroll durante cambios de paginación
-  const scrollPositionRef = useRef(0);
-
-  useEffect(() => {
-    // Guardar posición actual antes de que React re-renderice
-    scrollPositionRef.current = window.scrollY;
-  });
-
-  useEffect(() => {
-    // Restaurar scroll SOLO durante paginación, NO durante cambio de pestaña
-    // (Al cambiar pestaña es natural volver arriba)
-    const timer = setTimeout(() => {
-      window.scrollTo({
-        top: scrollPositionRef.current,
-        behavior: 'auto' // Sin smooth scroll
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [currentPage]); // Solo para paginación, no activeTab
-
-  // Fetch de clientes con paginación server-side
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      setLoading(true);
-      try {
-        let url = '';
-
-        // Seleccionar endpoint según pestaña activa
-        if (activeTab === 'all') {
-          url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
-        } else if (activeTab === 'at-risk') {
-          url = `http://localhost:8080/api/customers/at-risk?page=${currentPage}&size=${pageSize}`;
-        } else if (activeTab === 'analyzed') {
-          // Por ahora cargar todos y filtrar client-side (después optimizamos)
-          url = `http://localhost:8080/api/customers?page=${currentPage}&size=${pageSize}`;
-        }
-
-        const res = await fetch(url);
-
-        if (!res.ok) throw new Error('Error al cargar clientes');
-
-        const pageData = await res.json();
-
-        // Estructura del Page de Spring Boot:
-        // { content: [...], totalPages: X, totalElements: Y, number: Z, size: W }
-        setCustomers(pageData.content || []);
-        setTotalPages(pageData.totalPages || 0);
-        setTotalElements(pageData.totalElements || 0);
-
-      } catch (err) {
-        console.error(err);
-        setError('Error al cargar clientes paginados');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCustomers();
-  }, [currentPage, pageSize, activeTab]);
-
-  const handlePredict = async (customerId: string) => {
-    setAnalyzingIds(prev => new Set(prev).add(customerId));
+  const fetchDashboardStats = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/customers/${customerId}/predict`, {
-        method: 'POST'
-      });
-      
-      if (!response.ok) throw new Error('Error IA');
-      
-      const result: PredictionResult = await response.json();
-      setPredictions(prev => ({ ...prev, [customerId]: result }));
+      // Call Java backend which proxies to Python ML backend
+      const response = await fetch('http://localhost:8080/api/dashboard/bi/stats');
+      const data = await response.json();
 
+      // Map Python snake_case to TypeScript camelCase
+      setStats({
+        revenueAtRisk: data.revenue_at_risk || 0,
+        churnRate: data.churn_rate || 0,
+        customersAtRisk: data.customers_at_risk || 0,
+        npsScore: data.nps_score || 0,
+        trends: {
+          revenue: data.trends?.revenue || 0,
+          churn: data.trends?.churn || 0,
+          customers: data.trends?.customers || 0,
+          nps: data.trends?.nps || 0
+        }
+      });
     } catch (error) {
-      console.error(error);
-      alert("Error al consultar la IA");
-    } finally {
-      setAnalyzingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(customerId);
-        return newSet;
+      console.error('Error fetching dashboard stats:', error);
+      // Fallback to mock data
+      setStats({
+        revenueAtRisk: 1397215,
+        churnRate: 16.0,
+        customersAtRisk: 1992,
+        npsScore: 45,
+        trends: {
+          revenue: -12,
+          churn: 2,
+          customers: 8,
+          nps: -5
+        }
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getRiskBadgeColor = (risk: string) => {
-    switch(risk) {
-      case 'High': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800';
+  const fetchCriticalAlerts = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/api/dashboard/alerts');
+      const data = await response.json();
+      setAlerts(data);
+    } catch (error) {
+      console.error('Error fetching critical alerts:', error);
+      setAlerts([]);
     }
   };
 
-  // 🔍 Filtrado Client-Side (para filtros que no están en backend aún)
-  const filteredCustomers = customers.filter(c => {
-    // Filtro especial para pestaña "Analizados"
-    if (activeTab === 'analyzed' && !predictions[c.id]) {
-      return false; // Solo mostrar clientes con predicción
-    }
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+        <Sidebar />
+        <main className="flex-1 ml-64 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </main>
+      </div>
+    );
+  }
 
-    // Búsqueda por ID o ciudad
-    const matchesSearch = searchTerm === '' ||
-      c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.ciudad.toLowerCase().includes(searchTerm.toLowerCase());
-
-    // Filtro por ciudad
-    const matchesCity = filterCity === 'all' || c.ciudad === filterCity;
-
-    // Filtro por segmento
-    const matchesSegment = filterSegment === 'all' || c.segmento === filterSegment;
-
-    // Filtro por riesgo IA (solo funciona en pestaña "Analizados")
-    const matchesRisk = filterRisk === 'all' ||
-      (predictions[c.id] && predictions[c.id].risk === filterRisk);
-
-    return matchesSearch && matchesCity && matchesSegment && matchesRisk;
-  });
-
-  // Datos únicos para filtros (de la página actual)
-  const uniqueCities = Array.from(new Set(customers.map(c => c.ciudad))).sort();
-  const uniqueSegments = Array.from(new Set(customers.map(c => c.segmento))).sort();
+  if (!stats) {
+    return (
+      <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+        <Sidebar />
+        <main className="flex-1 ml-64 flex items-center justify-center">
+          <p className="text-gray-500">Error cargando datos del dashboard</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans text-slate-800">
-      
-      {/* SIDEBAR FIJO */}
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
       <Sidebar />
 
-      {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 ml-64 p-6"> {/* Reducido padding global de p-8 a p-6 */}
-        
-        {/* ENCABEZADO COMPACTO */}
-        <header className="mb-4 flex justify-between items-center"> {/* Reducido de mb-8 a mb-4 */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">RetainAI Dashboard</h1>
-                <p className="text-sm text-slate-500">Predicción de fuga geoespacial</p>
-            </div>
-            <div className="text-right">
-                <span className="bg-indigo-100 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-indigo-200">v1.0.0 Hackathon</span>
-            </div>
+      <main className="flex-1 ml-64 p-8">
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Overview Dashboard</h1>
+          <p className="text-base text-slate-600">
+            Resumen ejecutivo de métricas clave de retención
+          </p>
         </header>
 
-        {loading && (
-            <div className="flex justify-center p-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        {/* KPI Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <KPICard
+            title="💰 Revenue en Riesgo"
+            value={`$${(stats.revenueAtRisk / 1000000).toFixed(1)}M`}
+            trend={{
+              value: Math.abs(stats.trends.revenue),
+              direction: stats.trends.revenue < 0 ? 'down' : 'up'
+            }}
+            icon={<DollarSign className="w-6 h-6" />}
+            breakdown={[
+              { label: 'Corporativo', value: '$450K' },
+              { label: 'PYME', value: '$600K' },
+              { label: 'Residencial', value: '$347K' }
+            ]}
+            riskLevel="critical"
+            onViewMore={() => console.log('View revenue details')}
+          />
+
+          <KPICard
+            title="📉 Churn Rate"
+            value={`${stats.churnRate.toFixed(1)}%`}
+            trend={{
+              value: Math.abs(stats.trends.churn),
+              direction: stats.trends.churn > 0 ? 'up' : 'down'
+            }}
+            icon={<TrendingDown className="w-6 h-6" />}
+            breakdown={[
+              { label: 'Mensual', value: '29.2%' },
+              { label: 'Anual', value: '0.0%' }
+            ]}
+            riskLevel="high"
+            onViewMore={() => console.log('View churn details')}
+          />
+
+          <KPICard
+            title="👥 Clientes en Riesgo"
+            value={stats.customersAtRisk.toLocaleString()}
+            trend={{
+              value: Math.abs(stats.trends.customers),
+              direction: stats.trends.customers > 0 ? 'up' : 'down'
+            }}
+            icon={<Users className="w-6 h-6" />}
+            breakdown={[
+              { label: 'Crítico', value: '1,434' },
+              { label: 'Alto', value: '558' }
+            ]}
+            riskLevel="critical"
+            onViewMore={() => console.log('View customers')}
+          />
+
+          <KPICard
+            title="📊 NPS Score"
+            value={`${Math.round(stats.npsScore)}`}
+            trend={{
+              value: Math.abs(stats.trends.nps),
+              direction: stats.trends.nps < 0 ? 'down' : 'up'
+            }}
+            icon={<Star className="w-6 h-6" />}
+            breakdown={[
+              { label: 'Detractores', value: '573' },
+              { label: 'Promotores', value: '8,991' }
+            ]}
+            riskLevel="medium"
+            onViewMore={() => console.log('View NPS details')}
+          />
+        </div>
+
+        {/* Alertas Críticas */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">⚠️ Alertas Críticas</h2>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             </div>
-        )}
-        
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm">{error}</div>}
-
-        {!loading && !error && (
-            <>
-                {/* 1. SECCIÓN DE TARJETAS (KPIs) - VERSIÓN COMPACTA */}
-                {/* Reducido gap-6 a gap-4 y mb-8 a mb-5 para subir el mapa */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-                    
-                    {/* Card 1 */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between h-24">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Clientes</p>
-                        <div className="flex justify-between items-end">
-                            <p className="text-2xl font-extrabold text-slate-800">
-                                {stats?.totalCustomers?.toLocaleString() || 0}
-                            </p>
-                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 rounded">MySQL</span>
-                        </div>
+          ) : alerts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-2">✅</div>
+              <p>No hay alertas críticas en este momento</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {alerts.map((alert, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-4 rounded-xl ${alert.severity === 'critical'
+                    ? 'bg-red-50 border border-red-200'
+                    : alert.severity === 'high'
+                      ? 'bg-orange-50 border border-orange-200'
+                      : 'bg-yellow-50 border border-yellow-200'
+                    }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-3 h-3 rounded-full mr-3 ${alert.severity === 'critical'
+                      ? 'bg-red-500'
+                      : alert.severity === 'high'
+                        ? 'bg-orange-500'
+                        : 'bg-yellow-500'
+                      }`}></div>
+                    <div>
+                      <p className="font-medium text-slate-900">{alert.title}</p>
+                      <p className="text-sm text-slate-600">{alert.description}</p>
                     </div>
-
-                    {/* Card 2 */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between h-24">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tasa de Fuga</p>
-                        <div className="flex justify-between items-end">
-                            <p className={`text-2xl font-extrabold ${stats?.churnRate && stats.churnRate > 15 ? 'text-red-600' : 'text-green-600'}`}>
-                                {stats?.churnRate?.toFixed(1) || 0}%
-                            </p>
-                            <span className={`text-[10px] px-1.5 rounded ${stats?.churnRate && stats.churnRate > 15 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
-                                {stats?.churnRate && stats.churnRate > 15 ? 'Crítico' : 'Estable'}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Card 3 */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between h-24">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ingresos (MRR)</p>
-                        <div className="flex justify-between items-end">
-                             <p className="text-2xl font-extrabold text-green-700">
-                                ${stats?.totalRevenue?.toLocaleString() || "0"}
-                            </p>
-                            <span className="text-[10px] text-green-600 bg-green-50 px-1.5 rounded">Mensual</span>
-                        </div>
-                    </div>
-
-                    {/* Card 4 */}
-                    <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-between h-24">
-                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Pérdida Potencial</p>
-                        <div className="flex justify-between items-end">
-                             <p className="text-2xl font-extrabold text-red-700">
-                                -${stats?.churnRevenue?.toLocaleString() || 0}
-                            </p>
-                            <span className="text-[10px] text-red-500 bg-red-100 px-1.5 rounded">Riesgo</span>
-                        </div>
-                    </div>
+                  </div>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${alert.severity === 'critical'
+                      ? 'text-red-700 bg-red-100 hover:bg-red-200'
+                      : alert.severity === 'high'
+                        ? 'text-orange-700 bg-orange-100 hover:bg-orange-200'
+                        : 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200'
+                      }`}
+                  >
+                    {alert.actionLabel}
+                  </button>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-                {/* 👇 2. SECCIÓN DE MAPA (FACTOR WOW) - Lazy Loading */}
-                <div className="mb-6">
-                    <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); setMapVisible(!mapVisible); }}
-                        className={`w-full px-6 py-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                            mapVisible
-                                ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
-                                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg'
-                        }`}
-                    >
-                        {mapVisible ? '📉 Ocultar Mapa Geográfico' : '🗺️ Mostrar Mapa de Riesgo Geográfico'}
-                    </button>
-
-                    {/* 🚀 Lazy Loading + Preservación de Estado:
-                        - Primera vez: Solo carga si mapVisible=true (lazy)
-                        - Siguientes: Mantiene montado, solo oculta con CSS */}
-                    {hasLoadedMap && (
-                        <div
-                            className={`mt-4 bg-slate-900 rounded-xl p-1 shadow-lg border border-slate-800 transition-all duration-300 ${
-                                mapVisible ? 'block' : 'hidden'
-                            }`}
-                        >
-                            <ChurnMap />
-                        </div>
-                    )}
-                </div>
-
-                {/* 3. SECCIÓN DE TABLA */}
-                <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100 mb-8">
-                    {/* 📑 Pestañas de Navegación */}
-                    <div className="flex border-b border-gray-200 bg-white">
-                        <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); setActiveTab('all'); }}
-                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
-                                activeTab === 'all'
-                                    ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50'
-                                    : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
-                            }`}
-                        >
-                            📊 Todos
-                            <span className="ml-2 text-xs opacity-70">({stats?.totalCustomers.toLocaleString() || 0})</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); setActiveTab('at-risk'); }}
-                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
-                                activeTab === 'at-risk'
-                                    ? 'border-b-2 border-red-600 text-red-600 bg-red-50'
-                                    : 'text-slate-600 hover:text-red-600 hover:bg-slate-50'
-                            }`}
-                        >
-                            🔴 En Riesgo
-                            <span className="ml-2 text-xs opacity-70">(abandonoHistorico)</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); setActiveTab('analyzed'); }}
-                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all ${
-                                activeTab === 'analyzed'
-                                    ? 'border-b-2 border-green-600 text-green-600 bg-green-50'
-                                    : 'text-slate-600 hover:text-green-600 hover:bg-slate-50'
-                            }`}
-                        >
-                            🎯 Analizados IA
-                            <span className="ml-2 text-xs opacity-70">({Object.keys(predictions).length})</span>
-                        </button>
-                    </div>
-
-                    {/* Header con controles */}
-                    <div className="p-4 border-b border-gray-100 bg-gray-50">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-slate-700 text-sm">Listado de Clientes</h3>
-                            <span className="text-xs text-slate-400">
-                                {filteredCustomers.length} en página • {totalElements.toLocaleString()} total
-                            </span>
-                        </div>
-
-                        {/* Barra de Filtros */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                            {/* Búsqueda */}
-                            <input
-                                type="text"
-                                placeholder="🔍 Buscar por ID o ciudad..."
-                                value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); }}
-                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            />
-
-                            {/* Filtro Ciudad */}
-                            <select
-                                value={filterCity}
-                                onChange={(e) => { setFilterCity(e.target.value); }}
-                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                                <option value="all">📍 Todas las ciudades</option>
-                                {uniqueCities.map(city => (
-                                    <option key={city} value={city}>{city}</option>
-                                ))}
-                            </select>
-
-                            {/* Filtro Segmento */}
-                            <select
-                                value={filterSegment}
-                                onChange={(e) => { setFilterSegment(e.target.value); }}
-                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                                <option value="all">👥 Todos los segmentos</option>
-                                {uniqueSegments.map(seg => (
-                                    <option key={seg} value={seg}>{seg}</option>
-                                ))}
-                            </select>
-
-                            {/* Filtro Riesgo IA */}
-                            <select
-                                value={filterRisk}
-                                onChange={(e) => { setFilterRisk(e.target.value); }}
-                                className="px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                                <option value="all">🔮 Todos los riesgos</option>
-                                <option value="High">🔴 Alto</option>
-                                <option value="Medium">🟡 Medio</option>
-                                <option value="Low">🟢 Bajo</option>
-                            </select>
-                        </div>
-                    </div>
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">ID</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Ubicación</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Segmento</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">Estado</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase text-center">Riesgo IA</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">🧠 Factor Principal</th>
-                            <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase">🎯 Acción Recomendada</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                        {filteredCustomers.map((c) => {
-                            const prediction = predictions[c.id];
-                            const isAnalyzing = analyzingIds.has(c.id);
-
-                            return (
-                            <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3 text-xs font-mono text-slate-600">{c.id}</td>
-                                <td className="p-3 text-xs text-slate-700">
-                                    <span className="font-medium">{c.ciudad}</span>, <span className="text-slate-400">{c.pais}</span>
-                                </td>
-                                <td className="p-3">
-                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium border border-blue-100">
-                                        {c.segmento}
-                                    </span>
-                                </td>
-                                <td className="p-3">
-                                    {c.abandonado ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 rounded-full text-[10px] font-bold border border-red-100">
-                                            🔴 Off
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-full text-[10px] font-bold border border-green-100">
-                                            🟢 On
-                                        </span>
-                                    )}
-                                </td>
-                                <td className="p-3 text-center">
-                                {prediction ? (
-                                    <div className={`inline-flex flex-col items-center px-2 py-0.5 rounded border ${getRiskBadgeColor(prediction.risk)}`}>
-                                        <span className="font-bold text-[10px]">{prediction.risk}</span>
-                                        <span className="text-[9px] opacity-80">{(prediction.probability * 100).toFixed(0)}%</span>
-                                    </div>
-                                ) : (
-                                    <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); handlePredict(c.id); }}
-                                    disabled={isAnalyzing}
-                                    className={`
-                                        px-3 py-1 rounded text-[10px] font-medium transition-all shadow-sm
-                                        ${isAnalyzing
-                                        ? 'bg-gray-100 text-gray-400 cursor-wait'
-                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md active:transform active:scale-95'}
-                                    `}
-                                    >
-                                    {isAnalyzing ? "..." : "🔮 IA"}
-                                    </button>
-                                )}
-                                </td>
-                                {/* 🧠 Factor Principal */}
-                                <td className="p-3 text-xs text-slate-700 max-w-xs">
-                                    {prediction?.main_factor ? (
-                                        <span className="text-[10px] leading-relaxed">{prediction.main_factor}</span>
-                                    ) : (
-                                        <span className="text-[10px] text-slate-400 italic">-</span>
-                                    )}
-                                </td>
-                                {/* 🎯 Acción Recomendada */}
-                                <td className="p-3 text-xs text-slate-700 max-w-md">
-                                    {prediction?.next_best_action ? (
-                                        <span className="text-[10px] leading-relaxed">{prediction.next_best_action}</span>
-                                    ) : (
-                                        <span className="text-[10px] text-slate-400 italic">-</span>
-                                    )}
-                                </td>
-                            </tr>
-                            );
-                        })}
-                        </tbody>
-                    </table>
-
-                    {/* Controles de Paginación */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                            <div className="text-xs text-slate-500">
-                                Página {currentPage + 1} de {totalPages} • Mostrando {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, totalElements)} de {totalElements.toLocaleString()}
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setCurrentPage(0); }}
-                                    disabled={currentPage === 0}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    ⏮️ Primera
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(0, p - 1)); }}
-                                    disabled={currentPage === 0}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    ◀️ Anterior
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        setCurrentPage(p => Math.min(totalPages - 1, p + 1));
-                                        // Prevenir auto-scroll al hacer blur del botón
-                                        e.currentTarget.blur();
-                                    }}
-                                    disabled={currentPage === totalPages - 1}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Siguiente ▶️
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setCurrentPage(totalPages - 1); }}
-                                    disabled={currentPage === totalPages - 1}
-                                    className="px-3 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Última ⏭️
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </>
-        )}
+        {/* Priority Insights */}
+        <div className="mb-8">
+          <PriorityInsights />
+        </div>
       </main>
     </div>
   );

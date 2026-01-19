@@ -1,0 +1,7 @@
+,Value
+Original_Columns,67
+New_Features_Created,37
+Final_Columns,104
+New_Interaction_Features,"['riesgo_soporte_interaccion', 'intensidad_uso']"
+New_Financial_Features,"['ratio_carga_financiera', 'valor_diario_cliente']"
+Log_Transformed,"['errores_pago', 'tickets_soporte', 'antiguedad']"

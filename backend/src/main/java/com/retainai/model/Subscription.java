@@ -1,6 +1,8 @@
 package com.retainai.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -52,47 +54,155 @@ public class Subscription {
 
     // ========== SERVICIOS TELECOMUNICACIONES NYC ==========
     @Column(name = "servicio_telefono")
-    private String servicioTelefono;  // "Si" / "No"
+    private String servicioTelefono; // "Si" / "No"
 
     @Column(name = "lineas_multiples")
-    private String lineasMultiples;  // "Si" / "No" / "Sin servicio"
+    private String lineasMultiples; // "Si" / "No" / "Sin servicio"
 
     @Column(name = "tipo_internet")
-    private String tipoInternet;  // "Fibra óptica" / "DSL" / "No"
+    private String tipoInternet; // "Fibra óptica" / "DSL" / "No"
 
     @Column(name = "seguridad_online")
-    private String seguridadOnline;  // "Si" / "No" / "No internet service"
+    private String seguridadOnline; // "Si" / "No" / "No internet service"
 
     @Column(name = "respaldo_online")
-    private String respaldoOnline;  // "Si" / "No" / "No internet service"
+    private String respaldoOnline; // "Si" / "No" / "No internet service"
 
     @Column(name = "proteccion_dispositivo")
-    private String proteccionDispositivo;  // "Si" / "No" / "No internet service"
+    private String proteccionDispositivo; // "Si" / "No" / "No internet service"
 
     @Column(name = "soporte_tecnico")
-    private String soporteTecnico;  // "Si" / "No" / "No internet service"
+    private String soporteTecnico; // "Si" / "No" / "No internet service"
 
     @Column(name = "streaming_tv")
-    private String streamingTV;  // "Si" / "No" / "No internet service"
+    private String streamingTV; // "Si" / "No" / "No internet service"
 
     @Column(name = "streaming_peliculas")
-    private String streamingPeliculas;  // "Si" / "No" / "No internet service"
-
-    @Column(name = "servicios_premium_count")
-    private Integer serviciosPremiumCount;  // 0-4
+    private String streamingPeliculas; // "Si" / "No" / "No internet service"
 
     @Column(name = "facturacion_sin_papel")
-    private String facturacionSinPapel;  // "Si" / "No"
-
-    @Column(name = "tenure_group")
-    private String tenureGroup;  // "0-12 meses" / "13-24 meses" / "25-48 meses" / "49+ meses"
+    private String facturacionSinPapel; // "Si" / "No"
 
     @Column(name = "nivel_riesgo")
-    private String nivelRiesgo;  // "Bajo" / "Medio" / "Alto"
+    private String nivelRiesgo; // "Bajo" / "Medio" / "Alto"
 
     @Column(name = "score_riesgo")
-    private Double scoreRiesgo;  // 0-15
+    private Double scoreRiesgo; // 0-15
 
-    @Column(name = "risk_flag")
-    private Integer riskFlag;  // 0 o 1
+    // ========== MÉTODOS CALCULADOS (Feature Engineering) ==========
+    // Estos métodos calculan dinámicamente los valores en lugar de leerlos de BD
+
+    /**
+     * Calcula el número de servicios premium contratados
+     * 
+     * @return Número de servicios premium (0-6)
+     */
+    public Integer calculateServiciosPremiumCount() {
+        int count = 0;
+
+        if ("Si".equalsIgnoreCase(this.seguridadOnline))
+            count++;
+        if ("Si".equalsIgnoreCase(this.respaldoOnline))
+            count++;
+        if ("Si".equalsIgnoreCase(this.proteccionDispositivo))
+            count++;
+        if ("Si".equalsIgnoreCase(this.soporteTecnico))
+            count++;
+        if ("Si".equalsIgnoreCase(this.streamingTV))
+            count++;
+        if ("Si".equalsIgnoreCase(this.streamingPeliculas))
+            count++;
+
+        return count;
+    }
+
+    /**
+     * Calcula el grupo de tenure (antigüedad) del cliente
+     * 
+     * @return "0-12 meses", "13-24 meses", "25-48 meses", o "49+ meses"
+     */
+    public String calculateTenureGroup() {
+        if (this.mesesPermanencia == null) {
+            return "0-12 meses"; // Default
+        }
+
+        if (this.mesesPermanencia <= 12) {
+            return "0-12 meses";
+        } else if (this.mesesPermanencia <= 24) {
+            return "13-24 meses";
+        } else if (this.mesesPermanencia <= 48) {
+            return "25-48 meses";
+        } else {
+            return "49+ meses";
+        }
+    }
+
+    /**
+     * Calcula el flag de riesgo basado en nivel de riesgo
+     * 
+     * @return 1 si es alto riesgo, 0 si no
+     */
+    public Integer calculateRiskFlag() {
+        if (this.nivelRiesgo == null) {
+            return 0;
+        }
+        return "Alto".equalsIgnoreCase(this.nivelRiesgo) ? 1 : 0;
+    }
+
+    /**
+     * Obtiene servicios premium count CALCULADO (expuesto en JSON)
+     * Siempre calcula dinámicamente, ignora valor de BD
+     */
+    @JsonProperty("serviciosPremiumCount")
+    public Integer getServiciosPremiumCountCalculated() {
+        return calculateServiciosPremiumCount();
+    }
+
+    /**
+     * Obtiene tenure group CALCULADO (expuesto en JSON)
+     * Siempre calcula dinámicamente, ignora valor de BD
+     */
+    @JsonProperty("tenureGroup")
+    public String getTenureGroupCalculated() {
+        return calculateTenureGroup();
+    }
+
+    /**
+     * Obtiene risk flag CALCULADO (expuesto en JSON)
+     * Siempre calcula dinámicamente, ignora valor de BD
+     */
+    @JsonProperty("riskFlag")
+    public Integer getRiskFlagCalculated() {
+        return calculateRiskFlag();
+    }
+
+    // ========== MÉTODOS DE MIGRACIÓN (Deprecados y Ocultos en JSON) ==========
+    // Estos métodos permiten migración gradual pero eventualmente se eliminarán
+
+    /**
+     * @deprecated Usar getServiciosPremiumCountCalculated() en su lugar
+     */
+    @Deprecated
+    @JsonIgnore // No serializar en JSON
+    public Integer getServiciosPremiumCountOrCalculate() {
+        return calculateServiciosPremiumCount();
+    }
+
+    /**
+     * @deprecated Usar getTenureGroupCalculated() en su lugar
+     */
+    @Deprecated
+    @JsonIgnore // No serializar en JSON
+    public String getTenureGroupOrCalculate() {
+        return calculateTenureGroup();
+    }
+
+    /**
+     * @deprecated Usar getRiskFlagCalculated() en su lugar
+     */
+    @Deprecated
+    @JsonIgnore // No serializar en JSON
+    public Integer getRiskFlagOrCalculate() {
+        return calculateRiskFlag();
+    }
 }

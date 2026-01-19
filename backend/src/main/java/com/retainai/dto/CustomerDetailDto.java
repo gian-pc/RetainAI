@@ -4,6 +4,8 @@ import com.retainai.model.Subscription;
 import com.retainai.model.CustomerMetrics;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class CustomerDetailDto {
     private String id;
@@ -14,6 +16,13 @@ public class CustomerDetailDto {
     private String segmento;
     private Double latitud;
     private Double longitud;
+
+    // Nuevos campos geográficos
+    private String borough;
+    private String codigoPostal;
+    private String estado;
+    private LocalDate fechaRegistro;
+
     private Subscription subscription;
     private CustomerMetrics metrics;
 }

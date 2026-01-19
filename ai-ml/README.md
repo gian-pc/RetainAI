@@ -1,130 +1,101 @@
-# RetainAI - Motor de IA (Python)
+# 🤖 RetainAI - Machine Learning Module
 
-Servicio de Machine Learning para predicción de churn con explicabilidad avanzada (XAI).
+## 📊 Dataset Principal
+
+**Archivo:** `data/data.csv`  
+**Registros:** 9,701 clientes  
+**Columnas:** 67  
+**Ubicación:** New York City  
+**Estado:** Listo para ETL
+
+---
 
 ## 📁 Estructura del Proyecto
 
 ```
 ai-ml/
-├── data/                          # Datos del proyecto
-│   ├── original/                  # Dataset original del hackathon
-│   ├── raw/                       # Datos sin procesar (NYC business data, etc.)
-│   └── processed/                 # Datasets procesados por cada notebook
-│       ├── 01_dataset_clean.csv
-│       ├── 02_dataset_enriched_nyc.csv
-│       ├── 04_dataset_engineered.csv
-│       └── 04_features_metadata.json
+├── data/
+│   └── data.csv                    # Dataset principal (NYC Telecom)
 │
-├── models/                        # Modelos entrenados
-│   ├── champion/                  # Modelo en Producción
-│   │   ├── logistic_regression.pkl
-│   │   ├── scaler.pkl
-│   │   ├── label_encoder.pkl
-│   │   └── metadata.json
-│   ├── candidates/                # Modelos alternativos
-│   │   └── random_forest.pkl
-│   └── training_metadata.json
+├── notebooks/                      # Notebooks del equipo (PENDIENTE)
+│   ├── gian/                       # Pipeline completo de Gian
+│   ├── gabriel/                    # Pipeline completo de Gabriel
+│   ├── vanessa/                    # Pipeline completo de Vanessa
+│   └── ivan/                       # Pipeline completo de Ivan
 │
-├── notebooks/                     # Pipeline de Data Science
-│   ├── 01_data_quality_analysis.ipynb
-│   ├── 02_data_enrichment_nyc.ipynb
-│   ├── 03_eda_correlations.ipynb
-│   ├── 04_feature_engineering.ipynb
-│   └── 05_model_training.ipynb
+├── outputs/                        # Outputs individuales (PENDIENTE)
+│   ├── gian/
+│   ├── gabriel/
+│   ├── vanessa/
+│   └── ivan/
 │
-├── reports/                       # Reportes y visualizaciones
-│   ├── figures/                   # Gráficos generados (PNGs)
-│   ├── 05_feature_importance.csv
-│   └── 05_model_comparison.csv
+├── models/                         # Modelos ML (ACTUAL)
+│   └── champion_model.pkl          # Modelo en producción
 │
-├── src/                           # Código fuente de la API
-│   └── main.py                    # FastAPI application
+├── src/                            # Código Python reutilizable
+│   ├── data_loader.py
+│   ├── feature_engineering.py
+│   └── model_utils.py
 │
-├── requirements.txt               # Dependencias Python
-├── Dockerfile                     # Container para OCI
-└── .gitignore                     # Archivos ignorados por Git
+├── reports/                        # Reportes generados
+│
+├── docs/                           # Documentación
+│
+└── _temp_old_files/                # Archivos antiguos (backup)
 ```
 
-## 🚀 Setup Local
+---
 
-### 1. Crear entorno virtual
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # En Windows: .venv\Scripts\activate
-```
+## 🎯 Próximos Pasos
 
-### 2. Instalar dependencias
-```bash
-pip install -r requirements.txt
-```
+### Fase 1: Crear Estructura de Carpetas
+- [ ] Crear carpetas para cada miembro del equipo
+- [ ] Crear carpetas de outputs
+- [ ] Configurar paths
 
-### 3. Ejecutar API
-```bash
-uvicorn src.main:app --reload --port 8000
-```
+### Fase 2: Pipeline Individual (Cada Miembro)
+Cada persona creará 10 notebooks:
+1. `01_data_collection.ipynb`
+2. `02_data_quality.ipynb`
+3. `03_data_cleaning.ipynb`
+4. `04_data_transformation.ipynb`
+5. `05_eda.ipynb`
+6. `06_feature_engineering.ipynb`
+7. `07_feature_selection.ipynb`
+8. `08_model_training.ipynb`
+9. `09_model_evaluation.ipynb`
+10. `10_model_deployment.ipynb`
 
-## 📊 Pipeline de Data Science
+### Fase 3: Comparación de Modelos
+- Comparar los 4 modelos del equipo
+- Seleccionar el mejor
+- Deployment
 
-El pipeline sigue una metodología profesional con 5 notebooks secuenciales:
+---
 
-| Notebook | Descripción | Output |
-|----------|-------------|--------|
-| **01** | Análisis de calidad de datos | `01_dataset_clean.csv` |
-| **02** | Enriquecimiento con datos NYC | `02_dataset_enriched_nyc.csv` |
-| **03** | EDA, correlaciones y VIF | Visualizaciones + insights |
-| **04** | Feature Engineering | `04_dataset_engineered.csv` |
-| **05** | Entrenamiento de modelos | Modelos `.pkl` + métricas |
+## 👥 Equipo de Data Science
 
-## 🏆 Modelo Campeón
+- **Gian** - Random Forest / XGBoost
+- **Gabriel** - LightGBM / CatBoost
+- **Vanessa** - Neural Networks
+- **Ivan** - Ensemble Methods
 
-- **Algoritmo**: Logistic Regression
-- **AUC (Validación)**: 0.9088
-- **F1-Score**: 0.694
-- **Overfitting**: 0.3% (excelente generalización)
+---
 
-**Artifacts en `models/champion/`:**
-- `logistic_regression.pkl` - Modelo entrenado
-- `scaler.pkl` - StandardScaler para features numéricos
-- `label_encoder.pkl` - Encoder para variable target
-- `metadata.json` - Hiperparámetros y métricas
+## 🗽 Características del Dataset
 
-## 🔗 Integración con Backend Java
+- **Precios:** Realistas para NYC ($15-$350/mes)
+- **Outliers:** 3.5% de casos extremos
+- **Valores nulos:** ~10% estratégicos
+- **Naming:** 100% snake_case
+- **Calidad:** Listo para ETL profesional
 
-La API FastAPI (puerto 8000) se comunica con el backend Spring Boot (puerto 8080) mediante:
+---
 
-**Endpoint**: `POST /predict`
+## 📝 Notas
 
-**Input** (datos crudos desde BD):
-```json
-{
-  "city": "New York",
-  "monthly_charges": 79.99,
-  "tenure": 12,
-  "internet_type": "Fiber Optic",
-  "contract_type": "Month-to-Month",
-  ...
-}
-```
+- Dataset original renombrado de `raw_data_nyc.csv` a `data.csv`
+- Archivos antiguos movidos a `_temp_old_files/`
+- Modelo actual en producción: `models/champion_model.pkl`
 
-**Output** (respuesta enriquecida con XAI):
-```json
-{
-  "risk": "High",
-  "probability": 0.85,
-  "main_factor": "Precio Alto",
-  "next_best_action": "Ofrecer Descuento"
-}
-```
-
-## 📦 Deployment (OCI)
-
-El servicio está dockerizado y listo para desplegarse en **OCI Container Instances**.
-
-```bash
-docker build -t retainai-ml .
-docker run -p 8000:8000 retainai-ml
-```
-
-## 📄 Licencia
-
-Proyecto desarrollado para Challenge ONE - Oracle + Alura 2025
+**Fecha de última actualización:** 2026-01-19

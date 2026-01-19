@@ -38,15 +38,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/customers/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
                         .requestMatchers("/api/customers/*/predict").permitAll()
+                        .requestMatchers("/api/customers/predict/batch").permitAll() // Batch prediction
                         .requestMatchers("/api/dashboard/**").permitAll()
-
-                        // 👇 AGREGA ESTA LÍNEA AQUÍ 👇
+                        .requestMatchers("/api/insights/**").permitAll() // Insights prioritarios
                         .requestMatchers("/api/geo/**").permitAll()
-                        // 👆 ESTO HABILITA EL MAPA Y LA POPULACIÓN
-
                         .requestMatchers("/error").permitAll()
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

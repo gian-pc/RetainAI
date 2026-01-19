@@ -1,0 +1,249 @@
+// Executive Dashboard - Vista principal con KPIs y visualizaciones
+'use client';
+
+import { useState, useEffect } from 'react';
+import KPICard from './KPICard';
+import { DollarSign, TrendingDown, Users, Star } from 'lucide-react';
+
+interface DashboardStats {
+    revenueAtRisk: number;
+    churnRate: number;
+    customersAtRisk: number;
+    npsScore: number;
+    trends: {
+        revenue: number;
+        churn: number;
+        customers: number;
+        nps: number;
+    };
+}
+
+export default function ExecutiveDashboard() {
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchDashboardStats();
+    }, []);
+
+    const fetchDashboardStats = async () => {
+        try {
+            // Call Java backend which proxies to Python ML backend
+            const response = await fetch('http://localhost:8080/api/dashboard/bi/stats');
+            const data = await response.json();
+
+            // Map Python snake_case to TypeScript camelCase
+            setStats({
+                revenueAtRisk: data.revenue_at_risk || 0,
+                churnRate: data.churn_rate || 0,
+                customersAtRisk: data.customers_at_risk || 0,
+                npsScore: data.nps_score || 0,
+                trends: {
+                    revenue: data.trends?.revenue || 0,
+                    churn: data.trends?.churn || 0,
+                    customers: data.trends?.customers || 0,
+                    nps: data.trends?.nps || 0
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            // Fallback to mock data
+            setStats({
+                revenueAtRisk: 1397215,
+                churnRate: 16.0,
+                customersAtRisk: 1992,
+                npsScore: 45,
+                trends: {
+                    revenue: -12,
+                    churn: 2,
+                    customers: 8,
+                    nps: -5
+                }
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
+    if (!stats) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <p className="text-gray-500">Error cargando datos del dashboard</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">Dashboard Ejecutivo</h1>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Resumen de métricas clave de retención
+                            </p>
+                        </div>
+                        <div className="flex space-x-3">
+                            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                Filtros
+                            </button>
+                            <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                                Exportar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* KPI Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <KPICard
+                        title="💰 Revenue en Riesgo"
+                        value={`$${(stats.revenueAtRisk / 1000000).toFixed(1)}M`}
+                        trend={{
+                            value: Math.abs(stats.trends.revenue),
+                            direction: stats.trends.revenue < 0 ? 'down' : 'up'
+                        }}
+                        icon={<DollarSign className="w-6 h-6" />}
+                        breakdown={[
+                            { label: 'Corporativo', value: '$450K' },
+                            { label: 'PYME', value: '$600K' },
+                            { label: 'Residencial', value: '$347K' }
+                        ]}
+                        riskLevel="critical"
+                        onViewMore={() => console.log('View revenue details')}
+                    />
+
+                    <KPICard
+                        title="📉 Churn Rate"
+                        value={`${stats.churnRate.toFixed(1)}%`}
+                        trend={{
+                            value: Math.abs(stats.trends.churn),
+                            direction: stats.trends.churn > 0 ? 'up' : 'down'
+                        }}
+                        icon={<TrendingDown className="w-6 h-6" />}
+                        breakdown={[
+                            { label: 'Mensual', value: '29.2%' },
+                            { label: 'Anual', value: '0.0%' }
+                        ]}
+                        riskLevel="high"
+                        onViewMore={() => console.log('View churn details')}
+                    />
+
+                    <KPICard
+                        title="👥 Clientes en Riesgo"
+                        value={stats.customersAtRisk.toLocaleString()}
+                        trend={{
+                            value: Math.abs(stats.trends.customers),
+                            direction: stats.trends.customers > 0 ? 'up' : 'down'
+                        }}
+                        icon={<Users className="w-6 h-6" />}
+                        breakdown={[
+                            { label: 'Crítico', value: '1,434' },
+                            { label: 'Alto', value: '558' }
+                        ]}
+                        riskLevel="critical"
+                        onViewMore={() => console.log('View customers')}
+                    />
+
+                    <KPICard
+                        title="📊 NPS Score"
+                        value={`${stats.npsScore}/100`}
+                        trend={{
+                            value: Math.abs(stats.trends.nps),
+                            direction: stats.trends.nps < 0 ? 'down' : 'up'
+                        }}
+                        icon={<Star className="w-6 h-6" />}
+                        breakdown={[
+                            { label: 'Detractores', value: '573' },
+                            { label: 'Promotores', value: '8,991' }
+                        ]}
+                        riskLevel="medium"
+                        onViewMore={() => console.log('View NPS details')}
+                    />
+                </div>
+
+                {/* Alerts Section */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">⚠️ Alertas Críticas</h2>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center">
+                                <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                                <div>
+                                    <p className="font-medium text-gray-900">1,434 clientes con 6+ tickets</p>
+                                    <p className="text-sm text-gray-600">77.7% probabilidad de churn</p>
+                                </div>
+                            </div>
+                            <button className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200">
+                                Ver lista
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center">
+                                <div className="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                                <div>
+                                    <p className="font-medium text-gray-900">1,552 contratos mensuales en riesgo</p>
+                                    <p className="text-sm text-gray-600">29.2% churn rate - ROI 1,100%</p>
+                                </div>
+                            </div>
+                            <button className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200">
+                                Crear campaña
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-center">
+                                <div className="w-3 h-3 bg-orange-500 rounded-full mr-3"></div>
+                                <div>
+                                    <p className="font-medium text-gray-900">1,165 clientes en período crítico (0-12 meses)</p>
+                                    <p className="text-sm text-gray-600">38.5% churn en onboarding</p>
+                                </div>
+                            </div>
+                            <button className="px-4 py-2 text-sm font-medium text-orange-700 bg-orange-100 rounded-md hover:bg-orange-200">
+                                Ver programa
+                            </button>
+                        </div>
+                    </div>
+
+                    <button className="w-full mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
+                        Ver todas las alertas →
+                    </button>
+                </div>
+
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Segmentation Placeholder */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">🎯 Segmentación de Clientes</h2>
+                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <p className="text-gray-500">Bubble Chart - Próximamente</p>
+                        </div>
+                    </div>
+
+                    {/* Geographic Heatmap Placeholder */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">🗺️ Distribución Geográfica</h2>
+                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <p className="text-gray-500">Mapa NYC - Próximamente</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

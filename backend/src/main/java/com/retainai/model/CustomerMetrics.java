@@ -73,4 +73,12 @@ public class CustomerMetrics {
 
     @Column(name = "abandono_historico")
     private Boolean abandonoHistorico;
+
+    // ========== NUEVOS CAMPOS (Para modelo ML) ==========
+
+    @Column(name = "tiempo_sesion_promedio")
+    private Float tiempoSesionPromedio; // Feature #24 del nuevo modelo
+
+    @Column(name = "ultimo_contacto_soporte")
+    private java.time.LocalDate ultimoContactoSoporte; // Para calcular dias_desde_ultimo_contacto
 }

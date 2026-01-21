@@ -1,8 +1,11 @@
 package com.retainai.service;
 
 import com.retainai.dto.PredictionInputDto;
+import com.retainai.dto.PredictionInputDtoV2;
 import com.retainai.dto.PredictionResponseDto;
 import com.retainai.model.Customer;
+import com.retainai.model.CustomerMetrics;
+import com.retainai.model.Subscription;
 import com.retainai.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -31,8 +37,8 @@ public class PythonIntegrationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Cliente no encontrado: " + customerId));
 
-        // 2. Transformar a JSON Plano (Flattening)
-        PredictionInputDto payload = mapToFlatJson(customer);
+        // 2. Transformar a JSON Plano (Flattening) - Usando nuevo modelo V2 (24 features)
+        PredictionInputDtoV2 payload = mapToFlatJsonV2(customer);
 
         // 3. Detectar si el cliente ya abandonó (se enviará al modelo para análisis
         // dinámico)
@@ -170,6 +176,83 @@ public class PythonIntegrationService {
                 // Precio relativo
                 .ratioPrecioIngreso(ratioPrecioIngreso)
 
+                .build();
+    }
+
+    /**
+     * Mapea Customer a PredictionInputDtoV2 (Modelo Optimizado - 24 features RAW)
+     * Este método prepara EXACTAMENTE las 24 features que espera el nuevo modelo
+     */
+    private PredictionInputDtoV2 mapToFlatJsonV2(Customer c) {
+        // Validación: Necesitamos al menos la suscripción y métricas
+        if (c.getSubscription() == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "El cliente no tiene suscripción asociada");
+        }
+
+        Subscription sub = c.getSubscription();
+        CustomerMetrics metrics = c.getMetrics(); // Puede ser null
+
+        // ========== CALCULAR CAMPOS DERIVADOS ==========
+
+        // 1. Intensidad de uso = conexiones * promedio
+        Double conexiones = metrics != null && metrics.getConeccionesMensuales() != null
+            ? metrics.getConeccionesMensuales().doubleValue() : 0.0;
+        Double promedioConex = metrics != null && metrics.getPromedioConeccion() != null
+            ? metrics.getPromedioConeccion().doubleValue() : 0.0;
+        Double intensidadUso = conexiones * promedioConex;
+
+        // 2. Ratio carga financiera = cargo_mensual / ingresos_totales
+        Double cargoMensual = sub.getCuotaMensual() != null ? sub.getCuotaMensual() : 50.0;
+        Double ingresosTotales = sub.getIngresosTotales() != null ? sub.getIngresosTotales() : 100.0;
+        Double ratioCarga = ingresosTotales > 0 ? cargoMensual / ingresosTotales : 0.0;
+
+        // 3. Días desde último contacto soporte
+        Integer diasDesdeContacto = 0;
+        if (metrics != null && metrics.getUltimoContactoSoporte() != null) {
+            diasDesdeContacto = (int) ChronoUnit.DAYS.between(
+                metrics.getUltimoContactoSoporte(),
+                LocalDate.now()
+            );
+        }
+
+        // ========== CONSTRUIR DTO CON LAS 24 FEATURES ==========
+        return PredictionInputDtoV2.builder()
+                .scoreRiesgo(sub.getScoreRiesgo() != null ? sub.getScoreRiesgo() : 0.0)
+                .diasActivosSemanales(metrics != null && metrics.getDiasActivosSemanales() != null
+                    ? metrics.getDiasActivosSemanales() : 0)
+                .promedioConexion(promedioConex)
+                .conexionesMensuales(metrics != null && metrics.getConeccionesMensuales() != null
+                    ? metrics.getConeccionesMensuales() : 0)
+                .caracteristicasUsadas(metrics != null && metrics.getCaracteristicasUsadas() != null
+                    ? metrics.getCaracteristicasUsadas() : 0)
+                .diasUltimaConexion(metrics != null && metrics.getDiasUltimaConeccion() != null
+                    ? metrics.getDiasUltimaConeccion() : 0)
+                .intensidadUso(intensidadUso)
+                .ticketsSoporte(metrics != null && metrics.getTicketsSoporte() != null
+                    ? metrics.getTicketsSoporte() : 0)
+                .puntuacionNps(metrics != null && metrics.getScoreNps() != null
+                    ? metrics.getScoreNps().doubleValue() : 50.0)
+                .tasaCrecimientoUso(metrics != null && metrics.getTasaCrecimientoUso() != null
+                    ? metrics.getTasaCrecimientoUso().doubleValue() : 0.0)
+                .puntuacionCsat(metrics != null && metrics.getScoreCsat() != null
+                    ? metrics.getScoreCsat().doubleValue() : 3.0)
+                .ratioCargaFinanciera(ratioCarga)
+                .tasaAperturaEmail(metrics != null && metrics.getTasaAperturaEmail() != null
+                    ? metrics.getTasaAperturaEmail().doubleValue() : 0.5)
+                .erroresPago(sub.getErroresPago() != null ? sub.getErroresPago() : 0)
+                .antiguedad(sub.getMesesPermanencia() != null ? sub.getMesesPermanencia() : 1)
+                .ingresosTotales(ingresosTotales)
+                .latitud(c.getLatitud() != null ? c.getLatitud() : 0.0)
+                .cargoMensual(cargoMensual)
+                .tiempoResolucion(metrics != null && metrics.getTiempoResolucion() != null
+                    ? metrics.getTiempoResolucion().doubleValue() : 24.0)
+                .longitud(c.getLongitud() != null ? c.getLongitud() : 0.0)
+                .codigoPostal(c.getCodigoPostal() != null ? c.getCodigoPostal() : "00000")
+                .edad(c.getEdad() != null ? c.getEdad() : 30)
+                .diasDesdeUltimoContacto(diasDesdeContacto)
+                .tiempoSesionPromedio(metrics != null && metrics.getTiempoSesionPromedio() != null
+                    ? metrics.getTiempoSesionPromedio().doubleValue() : 0.0)
                 .build();
     }
 }

@@ -13,8 +13,8 @@ public class RestTemplateConfig {
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(3)) // Si no conecta en 3s, abortar.
-                .setReadTimeout(Duration.ofSeconds(5))    // Si conecta pero tarda > 5s en responder, abortar.
+                .setConnectTimeout(Duration.ofSeconds(10))  // Timeout de conexión: 10 segundos
+                .setReadTimeout(Duration.ofSeconds(30))     // Timeout de lectura: 30 segundos (para Gemini API)
                 .build();
     }
 }

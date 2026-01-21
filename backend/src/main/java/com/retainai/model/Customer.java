@@ -81,6 +81,13 @@ public class Customer {
     @EqualsAndHashCode.Exclude
     private List<AiPrediction> predictions;
 
+    // 👇 NUEVO: Relación con contexto adicional (para chatbot)
+    @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private CustomerContext context;
+
     public void setSubscription(Subscription subscription) {
         this.subscription = subscription;
         if (subscription != null) {
@@ -92,6 +99,13 @@ public class Customer {
         this.metrics = metrics;
         if (metrics != null) {
             metrics.setCustomer(this);
+        }
+    }
+
+    public void setContext(CustomerContext context) {
+        this.context = context;
+        if (context != null) {
+            context.setCustomer(this);
         }
     }
 

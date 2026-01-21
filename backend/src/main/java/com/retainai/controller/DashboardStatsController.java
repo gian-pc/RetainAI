@@ -39,7 +39,15 @@ public class DashboardStatsController {
      * Retorna lista de puntos con coordenadas y nivel de riesgo
      */
     @GetMapping("/heatmap")
-    public ResponseEntity<List<HeatmapPointDto>> getHeatmapData() {
+    public ResponseEntity<List<HeatmapPointDto>> getHeatmapData(
+            @RequestParam(required = false) String city) {
+
+        // Si se especifica ciudad, filtrar por esa ciudad
+        if (city != null && !city.isEmpty()) {
+            return ResponseEntity.ok(stats.getHeatmapDataByCity(city));
+        }
+
+        // Si no, retornar todos los clientes
         return ResponseEntity.ok(stats.getHeatmapData());
     }
 
@@ -53,80 +61,50 @@ public class DashboardStatsController {
         return ResponseEntity.ok(alertsService.getCriticalAlerts());
     }
 
-    // ========== ENDPOINTS DE BI (consumen Python backend) ==========
+    // ========== ENDPOINTS DE BI - DEPRECADOS ==========
+    // ⚠️ ESTOS ENDPOINTS LLAMABAN A api_dashboard.py (ELIMINADO POR DATOS FALSOS)
+    // TODO: Reimplementar con consultas MySQL reales o eliminar si no se usan
 
-    /**
-     * Obtiene estadísticas de BI desde el backend de Python
-     * GET /api/dashboard/bi/stats
-     */
-    @GetMapping("/bi/stats")
-    public ResponseEntity<Map<String, Object>> getBiStats() {
-        return ResponseEntity.ok(biService.getDashboardStatsFromPython());
-    }
+    // @GetMapping("/bi/stats")
+    // public ResponseEntity<Map<String, Object>> getBiStats() {
+    //     return ResponseEntity.ok(biService.getDashboardStatsFromPython());
+    // }
 
-    /**
-     * Obtiene análisis de segmentación
-     * GET /api/dashboard/bi/segments
-     */
-    @GetMapping("/bi/segments")
-    public ResponseEntity<Map<String, Object>> getSegments() {
-        return ResponseEntity.ok(biService.getSegmentationData());
-    }
+    // @GetMapping("/bi/segments")
+    // public ResponseEntity<Map<String, Object>> getSegments() {
+    //     return ResponseEntity.ok(biService.getSegmentationData());
+    // }
 
-    /**
-     * Obtiene datos geográficos para análisis de churn por zona
-     * GET /api/dashboard/bi/geographic
-     */
-    @GetMapping("/bi/geographic")
-    public ResponseEntity<Map<String, Object>> getGeographic() {
-        return ResponseEntity.ok(biService.getGeographicData());
-    }
+    // @GetMapping("/bi/geographic")
+    // public ResponseEntity<Map<String, Object>> getGeographic() {
+    //     return ResponseEntity.ok(biService.getGeographicData());
+    // }
 
-    /**
-     * Obtiene alertas de clientes en riesgo crítico
-     * GET /api/dashboard/bi/alerts
-     */
-    @GetMapping("/bi/alerts")
-    public ResponseEntity<Map<String, Object>> getAlerts() {
-        return ResponseEntity.ok(biService.getAlerts());
-    }
+    // @GetMapping("/bi/alerts")
+    // public ResponseEntity<Map<String, Object>> getAlerts() {
+    //     return ResponseEntity.ok(biService.getAlerts());
+    // }
 
-    /**
-     * Obtiene análisis de cohortes por antigüedad
-     * GET /api/dashboard/bi/cohorts
-     */
-    @GetMapping("/bi/cohorts")
-    public ResponseEntity<Map<String, Object>> getCohorts() {
-        return ResponseEntity.ok(biService.getCohortAnalysis());
-    }
+    // @GetMapping("/bi/cohorts")
+    // public ResponseEntity<Map<String, Object>> getCohorts() {
+    //     return ResponseEntity.ok(biService.getCohortAnalysis());
+    // }
 
-    /**
-     * Obtiene análisis de engagement por servicios
-     * GET /api/dashboard/bi/engagement
-     */
-    @GetMapping("/bi/engagement")
-    public ResponseEntity<Map<String, Object>> getEngagement() {
-        return ResponseEntity.ok(biService.getEngagementAnalysis());
-    }
+    // @GetMapping("/bi/engagement")
+    // public ResponseEntity<Map<String, Object>> getEngagement() {
+    //     return ResponseEntity.ok(biService.getEngagementAnalysis());
+    // }
 
-    /**
-     * Obtiene análisis de sensibilidad al precio
-     * GET /api/dashboard/bi/pricing
-     */
-    @GetMapping("/bi/pricing")
-    public ResponseEntity<Map<String, Object>> getPricing() {
-        return ResponseEntity.ok(biService.getPriceSensitivity());
-    }
+    // @GetMapping("/bi/pricing")
+    // public ResponseEntity<Map<String, Object>> getPricing() {
+    //     return ResponseEntity.ok(biService.getPriceSensitivity());
+    // }
 
-    /**
-     * Obtiene top clientes en riesgo
-     * GET /api/dashboard/bi/top-risk?limit=100
-     */
-    @GetMapping("/bi/top-risk")
-    public ResponseEntity<Map<String, Object>> getTopRisk(
-            @RequestParam(defaultValue = "100") int limit) {
-        return ResponseEntity.ok(biService.getTopRiskCustomers(limit));
-    }
+    // @GetMapping("/bi/top-risk")
+    // public ResponseEntity<Map<String, Object>> getTopRisk(
+    //         @RequestParam(defaultValue = "100") int limit) {
+    //     return ResponseEntity.ok(biService.getTopRiskCustomers(limit));
+    // }
 
     // ========== NUEVOS ENDPOINTS (consultan MySQL directamente) ==========
 

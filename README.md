@@ -152,10 +152,82 @@ npm run dev
 ## 📊 Estado del Proyecto
 
 * [x] **Fase 1**: Data Science (Limpieza, EDA y Entrenamiento de modelo Random Forest)
-* [ ] **Fase 2**: Backend (Configuración Spring Boot y MySQL)
-* [ ] **Fase 3**: Frontend (Dashboard Next.js)
-* [ ] **Fase 4**: Integración (Conexión de APIs)
-* [ ] **Fase 5**: Despliegue (Docker + Oracle Cloud)
+* [x] **Fase 2**: Backend (Configuración Spring Boot y MySQL)
+* [x] **Fase 3**: Frontend (Dashboard Next.js)
+* [x] **Fase 4**: Integración (Conexión de APIs)
+* [x] **Fase 5**: Features EXTRA Implementadas
+  * [x] IA Explicable (XAI) con main_factor y next_best_action
+  * [x] Mapa geográfico con Mapbox GL JS
+  * [x] Asistente IA conversacional (Speech-to-Text + Text-to-Speech)
+  * [x] Integración con Google Gemini API
+  * [x] Priorización de acciones por impacto económico
+* [ ] **Fase 6**: Despliegue (Docker + Oracle Cloud)
+
+### 🌟 Features Implementadas
+
+#### Centro de Comando (Home)
+- ✅ 4 KPIs principales: Revenue at Risk, Churn Rate, Customers at Risk, Avg NPS
+- ✅ Mapa geográfico interactivo con heatmap de riesgo
+- ✅ Filtros por país/ciudad (New York, London, Berlin, Toronto)
+- ✅ AI Insight Box con datos en tiempo real
+
+#### Acciones Prioritarias
+- ✅ Tarjetas de clientes ordenadas por impacto económico
+- ✅ Algoritmo de scoring: riskProbability × annualRevenue
+- ✅ Botones de acción rápida: View Profile, Call, Email
+- ✅ Factor principal de riesgo para cada cliente
+
+#### Perfil de Cliente
+- ✅ Datos completos del cliente (ciudad, segmento, suscripción, métricas)
+- ✅ Predicción de churn en tiempo real
+- ✅ Explicabilidad IA: Risk level, Probability, Main factor, Next best action
+- ✅ Botón refresh para actualizar predicción
+
+#### Asistente IA Multimodal
+- ✅ Botón flotante con modal de chat
+- ✅ Integración con Google Gemini API
+- ✅ Reconocimiento de voz (Speech-to-Text)
+- ✅ Síntesis de voz (Text-to-Speech)
+- ✅ Contexto en tiempo real con datos del dashboard
+- ✅ Respuestas inteligentes basadas en keywords
+
+---
+
+## 🤖 Configurar Google Gemini API (Opcional)
+
+El asistente IA funciona de dos formas:
+
+### Sin API Key (Por defecto)
+- ✅ Respuestas simuladas inteligentes
+- ✅ Usa datos reales del dashboard
+- ✅ No requiere configuración
+
+### Con API Key de Gemini (Recomendado)
+- ✅ Respuestas generadas por IA
+- ✅ Conversaciones más naturales
+- ✅ Mejor comprensión de contexto
+
+**Pasos rápidos:**
+
+1. Obtén tu API key: https://aistudio.google.com/app/apikey
+
+2. Crea archivo `.env` en `backend/`:
+```bash
+cd backend
+cp .env.example .env
+```
+
+3. Agrega tu API key:
+```properties
+GEMINI_API_KEY=tu_api_key_aqui
+```
+
+4. Reinicia el backend:
+```bash
+mvn spring-boot:run
+```
+
+📚 **Guía completa**: Ver `docs/GEMINI_SETUP.md`
 
 ---
 

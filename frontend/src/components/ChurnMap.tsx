@@ -268,6 +268,55 @@ const ChurnMap = () => {
     });
   }, [activeCity, mapReady]);
 
+  // 🎯 Escuchar eventos del chatbot para filtrar por ubicaciones (boroughs/ciudades)
+  useEffect(() => {
+    console.log('🗺️ [MAP DEBUG] ChurnMap: Registrando listener para eventos filterMapByLocations');
+
+    const handleLocationFilter = (event: CustomEvent<{ locations: string[] }>) => {
+      const locations = event.detail.locations;
+      console.log('🗺️ [MAP DEBUG] ChurnMap: Evento recibido:', locations);
+
+      // Filtrar solo clientes de esos boroughs/ciudades
+      if (locations.length > 0) {
+        const filtered = heatmapData.filter(point => {
+          // Verificar si el cliente está en alguna de las ubicaciones mencionadas
+          const matchesBorough = point.borough && locations.some(loc =>
+            point.borough?.toLowerCase().includes(loc.toLowerCase())
+          );
+          const matchesCity = locations.some(loc =>
+            point.ciudad?.toLowerCase().includes(loc.toLowerCase())
+          );
+          return matchesBorough || matchesCity;
+        });
+
+        console.log(`✅ Encontrados ${filtered.length} clientes en las ubicaciones especificadas`);
+
+        if (filtered.length > 0) {
+          // Calcular el centro y hacer zoom automático a esa zona
+          const avgLat = filtered.reduce((sum, p) => sum + p.latitude, 0) / filtered.length;
+          const avgLng = filtered.reduce((sum, p) => sum + p.longitude, 0) / filtered.length;
+
+          if (map.current) {
+            map.current.flyTo({
+              center: [avgLng, avgLat],
+              zoom: 13,
+              speed: 1.5
+            });
+          }
+
+          // Actualizar el mapa para mostrar solo esos clientes
+          setHeatmapData(filtered);
+        }
+      }
+    };
+
+    window.addEventListener('filterMapByLocations' as any, handleLocationFilter as any);
+
+    return () => {
+      window.removeEventListener('filterMapByLocations' as any, handleLocationFilter as any);
+    };
+  }, [heatmapData]);
+
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const country = e.target.value;
     setSelectedCountry(country);
@@ -300,6 +349,22 @@ const ChurnMap = () => {
                 .map(city => <option key={city} value={city}>{city}</option>)}
             </select>
           </div>
+
+          {/* Botón Restaurar Vista */}
+          <button
+            onClick={() => {
+              // Recargar TODOS los datos sin filtrar
+              sessionStorage.removeItem('churnmap_data');
+              sessionStorage.removeItem('churnmap_data_time');
+              window.location.reload();
+            }}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Restaurar Vista
+          </button>
         </div>
 
         {/* Leyenda con Thresholds */}

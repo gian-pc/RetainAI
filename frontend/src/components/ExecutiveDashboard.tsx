@@ -28,38 +28,27 @@ export default function ExecutiveDashboard() {
 
     const fetchDashboardStats = async () => {
         try {
-            // Call Java backend which proxies to Python ML backend
-            const response = await fetch('http://localhost:8080/api/dashboard/bi/stats');
+            // Call Java backend stats endpoint
+            const response = await fetch('http://localhost:8080/api/dashboard/stats');
             const data = await response.json();
 
-            // Map Python snake_case to TypeScript camelCase
+            // Map backend response to frontend format
             setStats({
-                revenueAtRisk: data.revenue_at_risk || 0,
-                churnRate: data.churn_rate || 0,
-                customersAtRisk: data.customers_at_risk || 0,
-                npsScore: data.nps_score || 0,
+                revenueAtRisk: data.churnRevenue || 0,
+                churnRate: data.churnRate || 0,
+                customersAtRisk: data.abandonedCustomers || 0,
+                npsScore: data.avgNpsScore || 0,
                 trends: {
-                    revenue: data.trends?.revenue || 0,
-                    churn: data.trends?.churn || 0,
-                    customers: data.trends?.customers || 0,
-                    nps: data.trends?.nps || 0
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
-            // Fallback to mock data
-            setStats({
-                revenueAtRisk: 1397215,
-                churnRate: 16.0,
-                customersAtRisk: 1992,
-                npsScore: 45,
-                trends: {
-                    revenue: -12,
+                    revenue: -12,  // TODO: Implement trend calculation in backend
                     churn: 2,
                     customers: 8,
                     nps: -5
                 }
             });
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            // NO mostrar datos falsos - dejar stats en null para mostrar error
+            setStats(null);
         } finally {
             setLoading(false);
         }

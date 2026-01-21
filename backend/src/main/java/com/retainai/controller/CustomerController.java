@@ -56,4 +56,10 @@ public class CustomerController {
     public ResponseEntity<CustomerDetailDto> getDetalle(@PathVariable String id) {
         return ResponseEntity.ok(customerService.obtenerDetalleCliente(id));
     }
+
+    // 📊 Historial de predicciones de un cliente
+    @GetMapping("/{id}/predictions/history")
+    public ResponseEntity<?> getPredictionHistory(@PathVariable String id) {
+        return ResponseEntity.ok(customerService.obtenerHistorialPredicciones(id));
+    }
 }

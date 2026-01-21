@@ -11,4 +11,8 @@ public interface PredictionRepository extends JpaRepository<AiPrediction, Long> 
     // 🚀 Batch query optimizada para mapa - evita N+1 queries
     @Query("SELECT p FROM AiPrediction p WHERE p.customer.id IN :customerIds")
     List<AiPrediction> findLatestByCustomerIds(@Param("customerIds") List<String> customerIds);
+
+    // 🔥 Top clientes de alto riesgo para chatbot
+    @Query("SELECT p FROM AiPrediction p ORDER BY p.probabilidadFuga DESC")
+    List<AiPrediction> findTop3HighRiskCustomers();
 }

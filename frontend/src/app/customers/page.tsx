@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Sidebar from '@/components/Sidebar';
 import { Search, Filter, Download, RefreshCw, Users as UsersIcon } from 'lucide-react';
 
 interface Customer {
@@ -121,14 +120,11 @@ export default function CustomersPage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
-                <Sidebar />
-                <main className="flex-1 ml-64 p-8 flex items-center justify-center">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
-                        <p className="text-slate-600">Cargando clientes...</p>
-                    </div>
-                </main>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Cargando clientes...</p>
+                </div>
             </div>
         );
     }
@@ -137,10 +133,8 @@ export default function CustomersPage() {
     const hasCustomers = customers.length > 0;
 
     return (
-        <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
-            <Sidebar />
-
-            <main className="flex-1 ml-64 p-8">
+        <div className="min-h-screen bg-gray-50">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <header className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">👥 Customers</h1>
                     <p className="text-base text-slate-600">
@@ -276,6 +270,7 @@ export default function CustomersPage() {
                                     <tr
                                         key={customer.customerId}
                                         className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                        onClick={() => window.location.href = `/customers/${customer.customerId}`}
                                     >
                                         <td className="py-4 px-6 text-sm font-mono text-slate-900">
                                             {customer.customerId}

@@ -10,7 +10,7 @@ import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import sys
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -330,6 +330,92 @@ def predict_churn(data: PredictionInput):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error en predicción: {str(e)}")
+
+
+@app.post("/predict/batch")
+def predict_churn_batch(customers: List[PredictionInput]):
+    """
+    Predicción batch optimizada para múltiples clientes.
+    Procesa miles de clientes en segundos.
+
+    Args:
+        customers: Lista de clientes a predecir
+
+    Returns:
+        Lista de predicciones con risk, probability, main_factor, next_best_action
+    """
+    try:
+        print(f"🚀 [BATCH] Procesando {len(customers)} clientes...")
+
+        # 1. Convertir todos los clientes a DataFrame
+        customer_dicts = []
+        for data in customers:
+            input_dict = data.dict()
+            input_dict['codigo_postal'] = codigo_postal_to_numeric(data.codigo_postal)
+            customer_dicts.append(input_dict)
+
+        df = pd.DataFrame(customer_dicts)
+
+        # 2. Predicción batch (MUCHO más rápido que una por una)
+        predictions = pipeline.predict(df)
+        probabilities = pipeline.predict_proba(df)
+
+        # 3. Obtener feature importances del modelo
+        model = pipeline.named_steps['model']
+        importances = model.feature_importances_
+
+        # 4. Procesar cada resultado
+        results = []
+        for idx, (pred_class, probs, customer_dict) in enumerate(zip(predictions, probabilities, customer_dicts)):
+            prob_churn = probs[1]
+
+            # Determinar nivel de riesgo
+            if prob_churn >= 0.90:
+                risk_label = "Off"
+            elif prob_churn >= 0.70:
+                risk_label = "High"
+            elif prob_churn >= 0.30:
+                risk_label = "Medium"
+            else:
+                risk_label = "Low"
+
+            # Seleccionar main factor
+            feature_importance_list = []
+            for feat, imp in zip(feature_names, importances):
+                value = customer_dict.get(feat, 0)
+                if isinstance(value, str):
+                    value = codigo_postal_to_numeric(value)
+                feature_importance_list.append((feat, imp, float(value)))
+
+            feature_importance_list.sort(key=lambda x: x[1], reverse=True)
+
+            main_feat, main_imp, main_value = select_best_actionable_factor(
+                feature_importance_list,
+                customer_dict
+            )
+
+            main_factor = generate_explanation_simple(main_feat, main_value)
+            next_best_action = generate_action(main_factor, customer_dict)
+
+            results.append({
+                "risk": risk_label,
+                "probability": round(prob_churn, 4),
+                "main_factor": main_factor,
+                "next_best_action": next_best_action
+            })
+
+            # Log cada 1000 clientes
+            if (idx + 1) % 1000 == 0:
+                print(f"   ✅ Procesados {idx + 1}/{len(customers)} clientes")
+
+        print(f"✅ [BATCH] Completado: {len(results)} predicciones generadas")
+        return results
+
+    except Exception as e:
+        print(f"❌ [BATCH ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error en predicción batch: {str(e)}")
 
 
 @app.get("/health")

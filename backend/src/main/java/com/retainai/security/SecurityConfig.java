@@ -38,10 +38,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/customers/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
                         .requestMatchers("/api/customers/*/predict").permitAll()
+                        .requestMatchers("/api/customers/*/predictions/history").permitAll()
                         .requestMatchers("/api/customers/predict/batch").permitAll() // Batch prediction
+                        .requestMatchers("/api/customers/predict/direct").permitAll() // Direct prediction
                         .requestMatchers("/api/dashboard/**").permitAll()
                         .requestMatchers("/api/insights/**").permitAll() // Insights prioritarios
                         .requestMatchers("/api/geo/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll() // AI Chat
+                        .requestMatchers("/api/tts/**").permitAll() // Text-to-Speech (ElevenLabs)
+                        .requestMatchers("/api/predictions/**").permitAll() // Batch analysis endpoint
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

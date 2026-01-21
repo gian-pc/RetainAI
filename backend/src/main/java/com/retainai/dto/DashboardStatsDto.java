@@ -17,4 +17,5 @@ public class DashboardStatsDto {
     private Double churnRate;
     private BigDecimal totalRevenue;
     private BigDecimal churnRevenue;
+    private Double avgNpsScore; // Score NPS promedio
 }

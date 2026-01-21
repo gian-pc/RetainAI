@@ -19,6 +19,9 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.metrics.abandonoHistorico = true")
     long countAbandonedCustomers();
 
+    @Query("SELECT AVG(c.metrics.scoreNps) FROM Customer c WHERE c.metrics.scoreNps IS NOT NULL")
+    Double avgNpsScore();
+
     // Query para alertas críticas
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.metrics.ticketsSoporte >= :minTickets")
     long countByTicketsSoporteGreaterThanEqual(int minTickets);

@@ -122,4 +122,40 @@ public class PredictionController {
                     "Error procesando archivo: " + e.getMessage());
         }
     }
+
+    /**
+     * Predicción directa con datos completos (sin consultar BD)
+     * POST: /api/customers/predict/direct
+     *
+     * Acepta un CSV con las 24 columnas completas y predice directamente
+     */
+    @PostMapping("/predict/direct")
+    public ResponseEntity<BatchPredictionResponseDTO> predictDirect(
+            @RequestParam("file") MultipartFile file) {
+
+        log.info("🆕 Predicción directa para clientes nuevos: {}", file.getOriginalFilename());
+
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Archivo vacío");
+        }
+
+        if (!file.getOriginalFilename().endsWith(".csv")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se aceptan archivos CSV");
+        }
+
+        try {
+            // Parsear CSV con datos completos y enviar a Python
+            BatchPredictionResponseDTO response = csvService.parseAndPredictDirect(file);
+
+            log.info("✅ Predicción directa completada: {} éxitos, {} errores",
+                response.getSuccessCount(), response.getErrorCount());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error en predicción directa", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error procesando archivo: " + e.getMessage());
+        }
+    }
 }

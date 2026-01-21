@@ -43,6 +43,9 @@ public class DashboardService {
             BigDecimal totalRevenue = subscriptionRepository.totalRevenue();
             BigDecimal churnRevenue = customerRepository.churnRevenue();
 
+            // Calcular NPS promedio
+            Double avgNpsScore = customerRepository.avgNpsScore();
+
             // NOTA: Eliminamos 'activeSubscriptionsRevenue' porque no se usaba en el DTO
             // y consumía recursos de la DB innecesariamente.
 
@@ -51,7 +54,8 @@ public class DashboardService {
                     abandonedCustomers, // Incluir cantidad absoluta
                     churnRate,
                     totalRevenue,
-                    churnRevenue);
+                    churnRevenue,
+                    avgNpsScore);
 
         } catch (Exception e) {
             log.error("Error calculando estadísticas del dashboard", e);
@@ -74,7 +78,8 @@ public class DashboardService {
                 0L, // abandonedCustomers
                 0.0,
                 BigDecimal.ZERO,
-                BigDecimal.ZERO);
+                BigDecimal.ZERO,
+                0.0); // avgNpsScore
     }
 
     /**
@@ -100,6 +105,35 @@ public class DashboardService {
 
         } catch (Exception e) {
             log.error("❌ Error generando heatmap data", e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Filtrar clientes por ciudad (para drill-down geográfico desde el chatbot)
+     * Solo retorna clientes de la ciudad especificada
+     */
+    public List<HeatmapPointDto> getHeatmapDataByCity(String city) {
+        try {
+            log.info("📍 Filtrando heatmap por ciudad: {}", city);
+
+            // Buscar clientes de esa ciudad que tengan coordenadas
+            List<Customer> customers = customerRepository.findByCiudad(city);
+
+            // Filtrar solo los que tienen coordenadas
+            List<Customer> customersWithCoords = customers.stream()
+                    .filter(c -> c.getLatitud() != null && c.getLongitud() != null)
+                    .toList();
+
+            log.info("✅ Encontrados {} clientes en {} con coordenadas", customersWithCoords.size(), city);
+
+            // Mapear a HeatmapPointDto
+            return customersWithCoords.stream()
+                    .map(this::mapToHeatmapPoint)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("❌ Error filtrando heatmap por ciudad: {}", city, e);
             return List.of();
         }
     }
@@ -138,7 +172,7 @@ public class DashboardService {
                 .cargoMensual(sub != null ? sub.getCuotaMensual() : 0.0)
                 .antiguedad(sub != null ? sub.getMesesPermanencia() : 0)
                 .ciudad(customer.getCiudad())
-                .borough(null) // TODO: Agregar borough a Customer entity si existe en BD
+                .borough(customer.getBorough()) // ✅ Borough real de la BD
                 .build();
     }
 

@@ -16,12 +16,13 @@ import lombok.NoArgsConstructor;
 public class HeatmapPointDto {
 
     private String customerId;
+    private String nombre; // Nombre Real del Negocio
     private Double latitude;
     private Double longitude;
 
     // Métricas de riesgo
-    private Double churnProbability;  // 0.0 - 1.0
-    private String riskLevel;         // "Low", "Medium", "High"
+    private Double churnProbability; // 0.0 - 1.0
+    private String riskLevel; // "Low", "Medium", "High"
 
     // Metadata para tooltip
     private String segmento;
@@ -30,6 +31,6 @@ public class HeatmapPointDto {
     private Integer antiguedad;
 
     // Agrupación geográfica
-    private String borough;           // Manhattan, Brooklyn, Queens, Bronx, Staten Island
+    private String borough; // Manhattan, Brooklyn, Queens, Bronx, Staten Island
     private String ciudad;
 }

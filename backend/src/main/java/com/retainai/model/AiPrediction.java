@@ -21,17 +21,37 @@ public class AiPrediction {
 
     private String motivoPrincipal;
 
+    @Column(name = "nivel_riesgo")
+    private String nivelRiesgo; // "Bajo", "Medio", "Alto" - Calculado automáticamente
+
     private LocalDateTime fechaAnalisis;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", referencedColumnName = "id")
     @JsonBackReference // 🛑 EL FRENO: Evita el bucle infinito con Customer
-    @ToString.Exclude  // Evita errores en logs
+    @ToString.Exclude // Evita errores en logs
     @EqualsAndHashCode.Exclude
     private Customer customer;
 
+    /**
+     * Calcula automáticamente el nivel de riesgo basándose en la probabilidad de
+     * fuga
+     * Se ejecuta antes de insertar o actualizar en la BD
+     */
     @PrePersist
-    protected void onCreate() {
+    @PreUpdate
+    protected void calculateRiskLevel() {
         fechaAnalisis = LocalDateTime.now();
+
+        // Calcular nivel de riesgo automáticamente
+        if (probabilidadFuga != null) {
+            if (probabilidadFuga < 0.30) {
+                nivelRiesgo = "Bajo";
+            } else if (probabilidadFuga < 0.70) {
+                nivelRiesgo = "Medio";
+            } else {
+                nivelRiesgo = "Alto";
+            }
+        }
     }
 }

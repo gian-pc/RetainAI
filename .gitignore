@@ -140,6 +140,11 @@ Variables de entorno
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
+backend/.env
+backend/.env.backup
+backend/.env.example
+
 
 Logs
 

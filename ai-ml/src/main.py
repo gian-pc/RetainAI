@@ -84,14 +84,15 @@ except Exception as e:
     raise
 
 
-# ========== DTO SIMPLIFICADO (24 FEATURES RAW) ==========
+# ========== DTO SIMPLIFICADO (23 FEATURES RAW - SIN DATA LEAKAGE) ==========
 class PredictionInput(BaseModel):
     """
     Input simplificado: Solo datos RAW del cliente (sin encoding).
     El pipeline del modelo se encarga de toda la transformación.
+    
+    NOTA: score_riesgo fue eliminado para evitar data leakage.
     """
-    # Campos del modelo (24 features)
-    score_riesgo: float
+    # Campos del modelo (23 features - sin score_riesgo)
     dias_activos_semanales: int
     promedio_conexion: float
     conexiones_mensuales: int
@@ -118,10 +119,10 @@ class PredictionInput(BaseModel):
 
 
 class PredictionOutput(BaseModel):
-    risk: str
     probability: float
     main_factor: str
     next_best_action: str
+    # NOTA: "risk" eliminado - ahora se calcula en Java con @PrePersist
 
 
 # ========== HELPER: Convertir codigo_postal a numerico ==========
@@ -141,7 +142,6 @@ def generate_explanation_simple(feature_name: str, feature_value: float) -> str:
     """
     # Mapeo de features a explicaciones contextuales
     explanations = {
-        'score_riesgo': f"Score de riesgo: {feature_value:.1f}/10",
         'dias_activos_semanales': f"Días activos por semana: {int(feature_value)}",
         'promedio_conexion': f"Promedio de conexión: {feature_value:.1f}",
         'conexiones_mensuales': f"Conexiones mensuales: {int(feature_value)}",
@@ -257,7 +257,7 @@ def predict_churn(data: PredictionInput):
         print(f"   Antigüedad: {data.antiguedad} meses")
         print(f"   Precio: ${data.cargo_mensual:.2f}")
         print(f"   NPS: {data.puntuacion_nps:.0f}, CSAT: {data.puntuacion_csat:.1f}")
-        print(f"   Tickets: {data.tickets_soporte}, Score Riesgo: {data.score_riesgo:.1f}")
+        print(f"   Tickets: {data.tickets_soporte}")
 
         # 4. Predicción usando el pipeline completo
         prediction_class = pipeline.predict(df)[0]
@@ -266,17 +266,10 @@ def predict_churn(data: PredictionInput):
         prob_no_churn = probabilities[0]
         prob_churn = probabilities[1]
 
-        # 5. Determinar nivel de riesgo
-        if prob_churn >= 0.90:
-            risk_label = "Off"
-        elif prob_churn >= 0.70:
-            risk_label = "High"
-        elif prob_churn >= 0.30:
-            risk_label = "Medium"
-        else:
-            risk_label = "Low"
+        # Nota: nivel_riesgo se calcula en el backend Java (@PrePersist)
+        # Python solo devuelve la probabilidad
 
-        # 6. Feature Importance (del modelo Random Forest)
+        # 5. Feature Importance (del modelo Random Forest)
         model = pipeline.named_steps['model']
         importances = model.feature_importances_
 
@@ -291,7 +284,7 @@ def predict_churn(data: PredictionInput):
         # Ordenar por importancia descendente
         feature_importance_list.sort(key=lambda x: x[1], reverse=True)
 
-        # 7. Seleccionar main factor (el más accionable)
+        # 6. Seleccionar main factor (el más accionable)
         main_feat, main_imp, main_value = select_best_actionable_factor(
             feature_importance_list,
             input_dict
@@ -311,15 +304,14 @@ def predict_churn(data: PredictionInput):
             print(f"      {i}. {f:30} → {exp}")
             print(f"         importance: {imp:.4f}, value: {val:.2f}")
 
-        # 8. Generar acción (usando el módulo XAI existente)
+        # 7. Generar acción (usando el módulo XAI existente)
         next_best_action = generate_action(main_factor, input_dict)
 
-        print(f"✅ [OUTPUT] Predicción: {risk_label} ({prob_churn:.2%})")
+        print(f"✅ [OUTPUT] Predicción: {prob_churn:.2%}")
         print(f"   Main Factor: {main_factor}")
         print(f"   Action: {next_best_action}")
 
         return {
-            "risk": risk_label,
             "probability": round(prob_churn, 4),
             "main_factor": main_factor,
             "next_best_action": next_best_action
@@ -369,15 +361,8 @@ def predict_churn_batch(customers: List[PredictionInput]):
         for idx, (pred_class, probs, customer_dict) in enumerate(zip(predictions, probabilities, customer_dicts)):
             prob_churn = probs[1]
 
-            # Determinar nivel de riesgo
-            if prob_churn >= 0.90:
-                risk_label = "Off"
-            elif prob_churn >= 0.70:
-                risk_label = "High"
-            elif prob_churn >= 0.30:
-                risk_label = "Medium"
-            else:
-                risk_label = "Low"
+            # Nota: nivel_riesgo se calcula en el backend Java (@PrePersist)
+            # Python solo devuelve la probabilidad
 
             # Seleccionar main factor
             feature_importance_list = []
@@ -398,7 +383,6 @@ def predict_churn_batch(customers: List[PredictionInput]):
             next_best_action = generate_action(main_factor, customer_dict)
 
             results.append({
-                "risk": risk_label,
                 "probability": round(prob_churn, 4),
                 "main_factor": main_factor,
                 "next_best_action": next_best_action

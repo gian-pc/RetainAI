@@ -35,7 +35,7 @@ public class TextToSpeechController {
 
         } catch (Exception e) {
             log.error("❌ Error en endpoint TTS: {}", e.getMessage());
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(500).body(("Error en TTS: " + e.getMessage()).getBytes());
         }
     }
 }

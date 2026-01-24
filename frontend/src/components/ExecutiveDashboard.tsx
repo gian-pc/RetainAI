@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import KPICard from './KPICard';
-import { DollarSign, TrendingDown, Users, Star } from 'lucide-react';
+import BatchPredictionModal from './BatchPredictionModal';
+import { DollarSign, TrendingDown, Users, Star, Zap } from 'lucide-react';
 
 interface DashboardStats {
     revenueAtRisk: number;
@@ -21,6 +22,7 @@ interface DashboardStats {
 export default function ExecutiveDashboard() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showBatchModal, setShowBatchModal] = useState(false);
 
     useEffect(() => {
         fetchDashboardStats();
@@ -84,6 +86,13 @@ export default function ExecutiveDashboard() {
                             </p>
                         </div>
                         <div className="flex space-x-3">
+                            <button
+                                onClick={() => setShowBatchModal(true)}
+                                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-md hover:from-blue-700 hover:to-purple-700 transition-all flex items-center space-x-2 shadow-md"
+                            >
+                                <Zap className="w-4 h-4" />
+                                <span>Predecir Todos</span>
+                            </button>
                             <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                                 Filtros
                             </button>
@@ -100,7 +109,7 @@ export default function ExecutiveDashboard() {
                 {/* KPI Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <KPICard
-                        title="💰 Revenue en Riesgo"
+                        title="💰 Ingresos en Riesgo"
                         value={`$${(stats.revenueAtRisk / 1000000).toFixed(1)}M`}
                         trend={{
                             value: Math.abs(stats.trends.revenue),
@@ -117,7 +126,7 @@ export default function ExecutiveDashboard() {
                     />
 
                     <KPICard
-                        title="📉 Churn Rate"
+                        title="📉 Tasa de Abandono"
                         value={`${stats.churnRate.toFixed(1)}%`}
                         trend={{
                             value: Math.abs(stats.trends.churn),
@@ -149,7 +158,7 @@ export default function ExecutiveDashboard() {
                     />
 
                     <KPICard
-                        title="📊 NPS Score"
+                        title="📊 NPS Promedio"
                         value={`${stats.npsScore}/100`}
                         trend={{
                             value: Math.abs(stats.trends.nps),
@@ -233,6 +242,16 @@ export default function ExecutiveDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Batch Prediction Modal */}
+            <BatchPredictionModal
+                isOpen={showBatchModal}
+                onClose={() => setShowBatchModal(false)}
+                onComplete={() => {
+                    // Refrescar datos del dashboard después de completar predicciones
+                    fetchDashboardStats();
+                }}
+            />
         </div>
     );
 }

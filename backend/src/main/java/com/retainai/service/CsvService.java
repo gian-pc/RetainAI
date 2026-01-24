@@ -137,7 +137,7 @@ public class CsvService {
                     // Agregar resultado exitoso
                     results.add(BatchPredictionResponseDTO.PredictionResult.builder()
                             .customerId(values[0])
-                            .risk(prediction.getRisk())
+                            .risk(prediction.getNivelRiesgo())
                             .probability(prediction.getProbability())
                             .mainFactor(prediction.getMainFactor())
                             .nextBestAction(prediction.getNextBestAction())
@@ -145,7 +145,7 @@ public class CsvService {
                             .build());
 
                     successCount++;
-                    log.info("   ✅ Línea {}: {} - {} ({}%)", lineNumber, values[0], prediction.getRisk(),
+                    log.info("   ✅ Línea {}: {} - {} ({}%)", lineNumber, values[0], prediction.getNivelRiesgo(),
                             String.format("%.1f", prediction.getProbability() * 100));
 
                 } catch (Exception e) {

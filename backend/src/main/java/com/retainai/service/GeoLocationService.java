@@ -4,15 +4,23 @@ import com.retainai.dto.GeoCustomerDto;
 import com.retainai.model.AiPrediction;
 import com.retainai.model.Customer;
 import com.retainai.repository.CustomerRepository;
-import com.retainai.repository.PredictionRepository; // 👈 Usamos TU repositorio
+import com.retainai.repository.PredictionRepository;
 import com.retainai.util.NyRealData;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -20,7 +28,7 @@ import java.util.stream.Collectors;
 public class GeoLocationService {
 
     private final CustomerRepository customerRepository;
-    private final PredictionRepository predictionRepository; // Inyección de tu repo
+    private final PredictionRepository predictionRepository;
     private final Random random = new Random();
 
     // 🎯 ZONAS ESTRATÉGICAS (Epicentros de la historia)
@@ -38,42 +46,156 @@ public class GeoLocationService {
         this.predictionRepository = predictionRepository;
     }
 
+    private static class LocationData {
+        String borough;
+        String name;
+        double lat;
+        double lng;
+
+        public LocationData(String borough, String name, double lat, double lng) {
+            this.borough = borough;
+            this.name = name;
+            this.lat = lat;
+            this.lng = lng;
+        }
+    }
+
+    /**
+     * Carga ubicaciones desde CSV y las asigna a los clientes
+     */
     @Transactional
     public int populateAllCoordinates() {
         List<Customer> allCustomers = customerRepository.findAll();
         int updatedCount = 0;
-        int nyIndex = 0;
+
+        // 1. Cargar datos del CSV
+        Map<String, List<LocationData>> boroughLocations = loadLocationsFromCSV();
+
+        // Barajar las listas para asignación aleatoria
+        for (List<LocationData> list : boroughLocations.values()) {
+            Collections.shuffle(list);
+        }
+
+        // Indices para rastrear uso
+        Map<String, Integer> usageIndex = new HashMap<>();
 
         for (Customer customer : allCustomers) {
-            String city = customer.getCiudad();
-            if (city == null) continue;
+            String targetBorough = "MANHATTAN"; // Default
 
-            String cityClean = city.trim().toLowerCase();
-
-            // Filtramos solo NY para la demo
-            if (cityClean.contains("new york") || cityClean.equals("ny") ||
-                    cityClean.contains("manhattan") || cityClean.contains("brooklyn") ||
-                    cityClean.contains("queens") || cityClean.contains("bronx")) {
-
-                // 1. Asignar Coordenada Real (Edificios Reales)
-                double[] realCoords = NyRealData.COORDINATES[nyIndex % NyRealData.COORDINATES.length];
-                double lat = realCoords[0];
-                double lng = realCoords[1];
-
-                customer.setLatitud(lat);
-                customer.setLongitud(lng);
-
-                // 2. 🧠 GENERAR PREDICCIÓN DE IA BASADA EN ZONA
-                generateAiPrediction(customer, lat, lng);
-
-                nyIndex++;
-                updatedCount++;
+            // Detectar borough preferido
+            if (customer.getBorough() != null && !customer.getBorough().isEmpty()) {
+                targetBorough = normalizeBorough(customer.getBorough());
+            } else if (customer.getCiudad() != null && customer.getCiudad().toLowerCase().contains("new york")) {
+                targetBorough = "MANHATTAN";
+            } else {
+                continue; // Skip si no es NY
             }
+
+            // Obtener lista de ubicaciones disponibles
+            List<LocationData> available = boroughLocations.getOrDefault(targetBorough,
+                    boroughLocations.get("MANHATTAN"));
+
+            if (available == null || available.isEmpty())
+                continue;
+
+            // Obtener siguiente ubicación única
+            int idx = usageIndex.getOrDefault(targetBorough, 0);
+            LocationData loc = available.get(idx % available.size()); // Loop si se acaban (pero tenemos 17k para 9k
+                                                                      // clientes)
+            usageIndex.put(targetBorough, idx + 1);
+
+            // Asignar datos
+            customer.setLatitud(loc.lat);
+            customer.setLongitud(loc.lng);
+            customer.setBorough(loc.borough); // Normalizar nombre de borough
+            customer.setNombre(loc.name); // ✅ Nombre Real del Negocio
+
+            // Generar Predicción basada en nueva ubicación
+            generateAiPrediction(customer, loc.lat, loc.lng);
+
+            updatedCount++;
         }
 
         customerRepository.saveAll(allCustomers);
-        System.out.println("✅ IA GEOLOCALIZADA: " + updatedCount + " predicciones generadas en NY.");
+        System.out.println("✅ REAL DATA POBLADA: " + updatedCount + " clientes con Nombres y Ubicaciones Reales.");
         return updatedCount;
+    }
+
+    private Map<String, List<LocationData>> loadLocationsFromCSV() {
+        Map<String, List<LocationData>> map = new HashMap<>();
+        try {
+            ClassPathResource resource = new ClassPathResource("nyc_business_locations.csv");
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8));
+
+            String line;
+            boolean header = true;
+            while ((line = reader.readLine()) != null) {
+                if (header) {
+                    header = false;
+                    continue;
+                }
+
+                // CSV columns: Address Borough, Business Name, License Type, Latitude,
+                // Longitude
+                // Usamos split simple por coma (asumiendo que los nombres no tienen comas o
+                // están entre comillas,
+                // pero nuestro script python usó to_csv standard. Para mayor robustez en java
+                // simple:)
+                String[] parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
+
+                if (parts.length >= 5) {
+                    try {
+                        String borough = parts[0].replace("\"", "").trim();
+                        String name = parts[1].replace("\"", "").trim() + " (" + parts[2].replace("\"", "").trim()
+                                + ")"; // Nombre + Tipo
+                        double lat = Double.parseDouble(parts[3]);
+                        double lng = Double.parseDouble(parts[4]);
+
+                        String normalizedBorough = normalizeBorough(borough);
+
+                        map.putIfAbsent(normalizedBorough, new ArrayList<>());
+                        map.get(normalizedBorough).add(new LocationData(normalizedBorough, name, lat, lng));
+                    } catch (Exception e) {
+                        // Skip bad lines
+                    }
+                }
+            }
+            System.out.println(
+                    "📂 CSV Cargado. Ubicaciones disponibles: " + map.values().stream().mapToInt(List::size).sum());
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("❌ Error cargando CSV de ubicaciones: " + e.getMessage());
+        }
+        return map;
+    }
+
+    private String normalizeBorough(String input) {
+        String upper = input.toUpperCase();
+        if (upper.contains("MANHATTAN"))
+            return "MANHATTAN";
+        if (upper.contains("BROOKLYN"))
+            return "BROOKLYN";
+        if (upper.contains("QUEENS"))
+            return "QUEENS";
+        if (upper.contains("BRONX"))
+            return "BRONX";
+        if (upper.contains("STATEN"))
+            return "STATEN ISLAND";
+        return "MANHATTAN";
+    }
+
+    /**
+     * 🏙️ Populate MANHATTAN Only (Phase 1) - Mantenido param compatibilidad pero
+     * usa lógica vieja por ahora
+     * O mejor: redirige a la lógica nueva filtrada?
+     * Para no romper nada, lo mantendré usando la lógica antigua de NyRealData si
+     * se llama específicamente,
+     * o podemos deprecarlo. Lo dejaré minimalista.
+     */
+    @Transactional
+    public int populateManhattanCoordinates() {
+        return populateAllCoordinates(); // Ahora todo usa la lógica unificada de alta calidad
     }
 
     private void generateAiPrediction(Customer c, double lat, double lng) {
@@ -117,8 +239,8 @@ public class GeoLocationService {
     // --- Mapeo para el Frontend (ULTRA-OPTIMIZADO) ---
     public List<GeoCustomerDto> getCustomersForMap(int limit) {
         // 🚀 Query directa a DTO - NO carga relaciones innecesarias
-        org.springframework.data.domain.PageRequest pageRequest =
-            org.springframework.data.domain.PageRequest.of(0, limit);
+        org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest.of(0,
+                limit);
 
         // Esta query ya devuelve GeoCustomerDto directamente (sin Customer completo)
         List<GeoCustomerDto> lightDtos = customerRepository.findGeoCustomersLight(pageRequest);
@@ -133,25 +255,26 @@ public class GeoLocationService {
         // Crear mapa de customerID -> risk calculado
         var riskMap = predictions.stream()
                 .collect(Collectors.toMap(
-                    p -> p.getCustomer().getId(),
-                    p -> {
-                        double prob = p.getProbabilidadFuga();
-                        if (prob > 0.70) return "High";
-                        if (prob > 0.35) return "Medium";
-                        return "Low";
-                    },
-                    (r1, r2) -> r1 // Si hay duplicados, tomar el primero
+                        p -> p.getCustomer().getId(),
+                        p -> {
+                            double prob = p.getProbabilidadFuga();
+                            if (prob > 0.70)
+                                return "High";
+                            if (prob > 0.35)
+                                return "Medium";
+                            return "Low";
+                        },
+                        (r1, r2) -> r1 // Si hay duplicados, tomar el primero
                 ));
 
         // Reemplazar "Low" default con el risk real
         return lightDtos.stream()
                 .map(dto -> new GeoCustomerDto(
-                    dto.id(),
-                    dto.lat(),
-                    dto.lng(),
-                    riskMap.getOrDefault(dto.id(), "Low"), // Risk calculado o Low por default
-                    dto.monthlyFee()
-                ))
+                        dto.id(),
+                        dto.lat(),
+                        dto.lng(),
+                        riskMap.getOrDefault(dto.id(), "Low"), // Risk calculado o Low por default
+                        dto.monthlyFee()))
                 .collect(Collectors.toList());
     }
 
@@ -160,7 +283,6 @@ public class GeoLocationService {
 
         // Buscamos la predicción más reciente (si existe)
         if (c.getPredictions() != null && !c.getPredictions().isEmpty()) {
-            // Ordenamos por ID descendente o fecha para tomar la última
             AiPrediction latest = c.getPredictions().stream()
                     .max(Comparator.comparing(AiPrediction::getId))
                     .orElse(null);
@@ -175,7 +297,8 @@ public class GeoLocationService {
         }
 
         Double fee = (c.getSubscription() != null && c.getSubscription().getCuotaMensual() != null)
-                ? c.getSubscription().getCuotaMensual().doubleValue() : 0.0;
+                ? c.getSubscription().getCuotaMensual().doubleValue()
+                : 0.0;
 
         return new GeoCustomerDto(c.getId(), c.getLatitud(), c.getLongitud(), risk, fee);
     }

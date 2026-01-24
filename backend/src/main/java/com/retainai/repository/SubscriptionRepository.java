@@ -1,5 +1,6 @@
 package com.retainai.repository;
 
+import com.retainai.model.AiPrediction;
 import com.retainai.model.Subscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,7 +23,15 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     BigDecimal activeSubscriptionsRevenue();
 
     // Queries para alertas críticas
-    @Query("SELECT COUNT(s) FROM Subscription s WHERE s.tipoContrato = :contractType AND s.nivelRiesgo IN :riskLevels")
+    // NOTA: nivel_riesgo ahora está en ai_predictions, no en subscriptions
+    @Query("""
+            SELECT COUNT(DISTINCT s)
+            FROM Subscription s
+            JOIN s.customer c
+            LEFT JOIN AiPrediction ap ON ap.customer.id = c.id
+            WHERE s.tipoContrato = :contractType
+            AND ap.nivelRiesgo IN :riskLevels
+            """)
     long countByTipoContratoAndNivelRiesgoIn(@Param("contractType") String contractType,
             @Param("riskLevels") List<String> riskLevels);
 

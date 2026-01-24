@@ -20,6 +20,9 @@ public class Customer {
     @Column(name = "id", nullable = false)
     private String id;
 
+    @Column(name = "nombre")
+    private String nombre;
+
     private String genero;
     private Integer edad;
     private String pais;

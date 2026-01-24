@@ -91,28 +91,33 @@ export default function AIAssistant() {
         return cleaned;
     };
 
-    // 🗺️ Detectar boroughs/ubicaciones y emitir evento para filtrar el mapa
-    const detectCityAndFilterMap = (text: string) => {
-        // Lista de boroughs de NYC y otras ciudades
+    // 🗺️ Detectar boroughs/ubicaciones y IDs de clientes para filtrar el mapa
+    const detectContextAndFilterMap = (text: string) => {
+        // 1. Detectar Ubicaciones (Boroughs de NYC)
         const locations = [
-            'Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island',
-            'New York', 'London', 'Berlin', 'Toronto'
+            'Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'
         ];
 
-        console.log('🔍 [MAP DEBUG] Analizando texto para detectar ciudades:', text.substring(0, 50) + '...');
-
-        // Buscar si algún borough/ciudad está mencionada
         const foundLocations = locations.filter(location =>
             text.includes(location) || text.toLowerCase().includes(location.toLowerCase())
         );
 
-        if (foundLocations.length > 0) {
-            console.log(`🎯 Ubicaciones detectadas: ${foundLocations.join(', ')}`);
-            console.log('📡 Emitiendo evento filterMapByLocations...');
+        // 2. Detectar IDs de Clientes (Formato ej: 11483-069BB)
+        // Regex busca: 3-6 dígitos, un guion, y 4-6 caracteres alfanuméricos
+        const idRegex = /\b\d{3,6}-[A-Z0-9]{4,6}\b/g;
+        const foundIds = text.match(idRegex) || [];
 
-            // Emitir evento con las ubicaciones encontradas
-            const event = new CustomEvent('filterMapByLocations', {
-                detail: { locations: foundLocations }
+        console.log('🔍 [MAP DEBUG] Contexto detectado:', { locations: foundLocations, ids: foundIds });
+
+        if (foundLocations.length > 0 || foundIds.length > 0) {
+            console.log('📡 Emitiendo evento filterMapByContext...');
+
+            // Emitir evento con ubicaciones e IDs
+            const event = new CustomEvent('filterMapByContext', {
+                detail: {
+                    locations: foundLocations,
+                    customerIds: foundIds
+                }
             });
             window.dispatchEvent(event);
         }
@@ -141,8 +146,8 @@ export default function AIAssistant() {
         setMessages(prev => [...prev, assistantMessage]);
 
         try {
-            // Usar endpoint normal (sin streaming por ahora - hay un bug)
-            const response = await fetch('http://localhost:8080/api/ai/chat', {
+            // Usar nuevo endpoint de chatbot con Text-to-SQL
+            const response = await fetch('http://localhost:8080/api/chatbot/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -161,7 +166,9 @@ export default function AIAssistant() {
             }
 
             const data = await response.json();
-            const fullResponse = data.response || 'Lo siento, no pude procesar tu solicitud.';
+            const fullResponse = data.message || 'Lo siento, no pude procesar tu solicitud.';
+
+            console.log('🤖 Respuesta del chatbot:', data);
 
             // Actualizar el último mensaje con la respuesta completa
             setMessages(prev => {
@@ -175,12 +182,19 @@ export default function AIAssistant() {
 
             setIsSending(false);
 
-            // 🗺️ Detectar si la respuesta menciona una ciudad y filtrar el mapa
-            detectCityAndFilterMap(fullResponse);
+            // 🗺️ Si hay metadata, emitir evento para actualizar el mapa
+            if (data.metadata) {
+                console.log('📍 Emitiendo evento para actualizar mapa:', data.metadata);
+
+                const event = new CustomEvent('chatbot-map-update', {
+                    detail: data.metadata
+                });
+                window.dispatchEvent(event);
+            }
 
             // Reproducir audio limpio (sin tablas/símbolos)
-            const cleanText = cleanTextForTTS(fullResponse);
-            speakResponse(cleanText);
+            // const cleanText = cleanTextForTTS(fullResponse);
+            // speakResponse(cleanText);
 
         } catch (error) {
             console.error('Error sending message:', error);
@@ -243,7 +257,19 @@ export default function AIAssistant() {
             });
 
             if (!response.ok) {
-                console.error('Error al generar audio:', response.statusText);
+                const errorText = await response.text(); // Leer el mensaje de error del backend
+                console.error('Error al generar audio (status):', response.statusText);
+                console.error('Error al generar audio (body):', errorText);
+
+                // Mostrar alerta descriptiva al usuario
+                if (errorText.includes("401") || errorText.includes("Unauthorized")) {
+                    alert("⚠️ Error de Audio: API Key de ElevenLabs inválida o expirada. Revisa tu archivo .env");
+                } else if (errorText.includes("429") || errorText.includes("Quota")) {
+                    alert("⚠️ Error de Audio: Se agotaron los créditos gratuitos de ElevenLabs.");
+                } else {
+                    // Decodificar el mensaje si viene como bytes/texto bruto
+                    alert(`⚠️ No se pudo generar el audio.\nDetalle: ${errorText}`);
+                }
                 return;
             }
 
@@ -280,8 +306,9 @@ export default function AIAssistant() {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-110"
+                    className="fixed bottom-4 right-4 z-50 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-110 max-w-fit"
                     aria-label="Abrir Asistente IA"
+                    style={{ marginBottom: '0', marginRight: '0' }}
                 >
                     <div className="flex items-center gap-2">
                         <span className="text-2xl">🎙️</span>
@@ -292,7 +319,7 @@ export default function AIAssistant() {
 
             {/* Chat Modal */}
             {isOpen && (
-                <div className="fixed bottom-6 right-6 z-50 w-full max-w-md">
+                <div className="fixed bottom-4 right-4 z-50 w-full max-w-md" style={{ marginBottom: '0', marginRight: '0' }}>
                     <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col h-[600px]">
                         {/* Header */}
                         <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-t-2xl flex items-center justify-between">

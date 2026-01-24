@@ -48,6 +48,8 @@ public class GeminiService {
         }
 
         try {
+            // 🔍 Enriquecer contexto con queries SQL dinámicas basadas en la pregunta
+            String enrichedContext = enrichContextWithDatabaseQuery(userMessage);
             // Construir el contexto del sistema
             String systemContext = buildSystemContext();
 
@@ -58,6 +60,12 @@ public class GeminiService {
             StringBuilder fullPrompt = new StringBuilder(systemContext);
             fullPrompt.append("\n\n");
 
+            // Agregar contexto dinámico de la query SQL (si existe)
+            if (enrichedContext != null && !enrichedContext.isEmpty()) {
+                fullPrompt.append(enrichedContext);
+                fullPrompt.append("\n\n");
+            }
+
             // Agregar historial de conversación
             if (conversationHistory != null && !conversationHistory.isEmpty()) {
                 fullPrompt.append("Historial de conversación:\n");
@@ -67,8 +75,12 @@ public class GeminiService {
                 fullPrompt.append("\n");
             }
 
-            fullPrompt.append("FORMATO DE RESPUESTA OBLIGATORIO:\n");
-            fullPrompt.append("Responde en este formato EXACTO (respeta los emojis y estructura):\n\n");
+            fullPrompt.append("INSTRUCCIONES DE RESPUESTA:\n");
+            fullPrompt.append(
+                    "1. SI el usuario saluda (ej: 'hola', 'buenos días'): Responde de forma breve, profesional y amable. NO uses el formato de análisis.\n");
+            fullPrompt.append("2. SI el usuario hace una pregunta general: Responde directamente.\n");
+            fullPrompt.append(
+                    "3. SI Y SOLO SI el usuario pide análisis, datos, riesgo o información de clientes, DEBES usar el siguiente formato:\n\n");
             fullPrompt.append("📊 **Summary**\n");
             fullPrompt.append("[1-2 oraciones sobre la situación general]\n\n");
             fullPrompt.append("🔍 **Key Insights**\n");
@@ -143,8 +155,9 @@ public class GeminiService {
                             : customer.getCiudad();
 
                     topRiskContext.append(String.format(
-                            "- Cliente #%d: ID %s | Probabilidad de fuga %.0f%% | Razón: %s | Valor: $%.0f/mes | Ubicación: %s\n",
+                            "- Cliente #%d: %s (ID: %s) | Probabilidad de fuga: %.1f%% | Razón: %s | Valor: $%.0f/mes | Ubicación: %s\n",
                             (i + 1),
+                            customer.getNombre(),
                             customer.getId(),
                             pred.getProbabilidadFuga() * 100,
                             pred.getMotivoPrincipal(),
@@ -158,6 +171,11 @@ public class GeminiService {
                             Eres un asistente ejecutivo de RetainAI, especializado en prevención de churn para empresas de suscripción.
 
                             Tu audiencia: Ejecutivos, gerentes de retención y líderes de negocio que necesitan tomar decisiones rápidas.
+
+                            ⚠️ CONTEXTO GEOGRÁFICO CRÍTICO:
+                            TODOS los clientes están ubicados en New York City (USA).
+                            Los boroughs incluyen: Manhattan, Brooklyn, Queens, Bronx, Staten Island.
+                            NUNCA menciones ciudades de México, LATAM u otros países.
 
                             DATOS ACTUALES DEL NEGOCIO (en tiempo real):
                             📊 Panorama General:
@@ -182,6 +200,13 @@ public class GeminiService {
                                - USA los IDs de cliente EXACTOS de la lista de "CLIENTES DE MAYOR RIESGO"
                                - USA las ciudades EXACTAS que aparecen en los datos (ej: si dice "New York", usa "New York")
                                - USA las probabilidades y valores EXACTOS que se proporcionan
+
+                            ⚠️ REGLA SUPREMA - SOLO CLIENTES EN LA LISTA:
+                               - SOLO puedes mencionar clientes que aparecen en la sección "CLIENTES DE MAYOR RIESGO"
+                               - Si te preguntan por "el cliente de mayor riesgo", es el Cliente #1 de esa lista
+                               - NUNCA menciones clientes que NO estén en esa lista de 3 clientes
+                               - Si alguien menciona un cliente fuera de la lista, responde: "No tengo información detallada de ese cliente. Los 3 clientes de mayor riesgo HOY son: [lista los 3]"
+                               - USA las probabilidades EXACTAS (no redondees 94%% a 99%%)
 
                             2. **Formato de respuesta**: Usa el formato estructurado con emojis
                                - 📊 Summary (1-2 oraciones)
@@ -223,6 +248,76 @@ public class GeminiService {
                     Habla como un consultor senior, sé conciso y enfócate en insights de negocio accionables.
                     Responde siempre en español natural.
                     """;
+        }
+    }
+
+    /**
+     * 🔍 Enriquece el contexto con datos de la BD basándose en la pregunta del usuario
+     * Hace queries SQL dinámicas para obtener datos reales
+     */
+    private String enrichContextWithDatabaseQuery(String userMessage) {
+        try {
+            String lowerMsg = userMessage.toLowerCase();
+
+            // Detectar pregunta por el cliente de MAYOR riesgo
+            if (lowerMsg.contains("mayor riesgo") || lowerMsg.contains("más riesgo") ||
+                lowerMsg.contains("mas riesgo") || lowerMsg.contains("highest risk")) {
+
+                log.info("🔍 [SQL QUERY] Detectada pregunta por cliente de MAYOR riesgo");
+
+                // Query SQL: Obtener el cliente con MAYOR probabilidad de churn
+                List<AiPrediction> topPrediction = predictionRepository.findTop3HighRiskCustomers();
+
+                if (!topPrediction.isEmpty()) {
+                    AiPrediction pred = topPrediction.get(0); // El primero es el de mayor riesgo
+                    Customer customer = pred.getCustomer();
+
+                    String location = customer.getBorough() != null
+                            ? customer.getBorough() + ", " + customer.getCiudad()
+                            : customer.getCiudad();
+
+                    String queryResult = String.format("""
+
+                            📊 RESULTADO DE CONSULTA SQL A LA BASE DE DATOS (en tiempo real):
+
+                            Query ejecutada: SELECT * FROM ai_predictions JOIN customers ORDER BY probabilidad_fuga DESC LIMIT 1
+
+                            CLIENTE DE MAYOR RIESGO HOY:
+                            - Nombre: %s
+                            - ID: %s
+                            - Probabilidad de churn: %.1f%%
+                            - Nivel de riesgo: %s
+                            - Razón principal: %s
+                            - Cargo mensual: $%.2f/mes
+                            - Ubicación: %s
+                            - Segmento: %s
+
+                            ⚠️ IMPORTANTE: USA ESTOS DATOS EXACTOS. NO inventes otros clientes ni otras probabilidades.
+                            """,
+                            customer.getNombre(),
+                            customer.getId(),
+                            pred.getProbabilidadFuga() * 100,
+                            pred.getNivelRiesgo(),
+                            pred.getMotivoPrincipal(),
+                            customer.getSubscription() != null ? customer.getSubscription().getCuotaMensual() : 0.0,
+                            location,
+                            customer.getSegmento());
+
+                    log.info("✅ [SQL QUERY] Datos del cliente de mayor riesgo inyectados en el contexto");
+                    return queryResult;
+                }
+            }
+
+            // Más queries pueden agregarse aquí en el futuro
+            // - Clientes por ubicación
+            // - Clientes por segmento
+            // - etc.
+
+            return ""; // Si no match ninguna query, retornar vacío
+
+        } catch (Exception e) {
+            log.error("❌ Error ejecutando query dinámica: {}", e.getMessage());
+            return ""; // En caso de error, continuar sin contexto adicional
         }
     }
 

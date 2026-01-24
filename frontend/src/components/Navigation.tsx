@@ -10,10 +10,11 @@ export default function Navigation() {
     { name: 'Centro de Comando', href: '/', icon: '🗺️' },
     { name: 'Acciones Prioritarias', href: '/actions', icon: '🎯' },
     { name: 'Clientes', href: '/customers', icon: '👥' },
+    { name: 'Datos', href: '/data-management', icon: '💾' },
   ];
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
+    <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -35,10 +36,9 @@ export default function Navigation() {
                   href={item.href}
                   className={`
                     px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                    ${
-                      isActive
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
+                    ${isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
                     }
                   `}
                 >

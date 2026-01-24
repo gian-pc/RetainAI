@@ -52,6 +52,24 @@ public class DashboardStatsController {
     }
 
     /**
+     * TEST ENDPOINT - Verificar cuántos clientes tienen coordenadas
+     * GET /api/dashboard/heatmap/count
+     */
+    @GetMapping("/heatmap/count")
+    public ResponseEntity<Map<String, Object>> getHeatmapCount() {
+        try {
+            List<HeatmapPointDto> data = stats.getHeatmapData();
+            return ResponseEntity.ok(Map.of(
+                    "count", data.size(),
+                    "message", "Clientes con coordenadas encontrados"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "count", 0,
+                    "error", e.getMessage()));
+        }
+    }
+
+    /**
      * Endpoint para obtener alertas críticas dinámicas
      * GET /api/dashboard/alerts
      * Retorna lista de alertas calculadas desde la BD
@@ -67,43 +85,43 @@ public class DashboardStatsController {
 
     // @GetMapping("/bi/stats")
     // public ResponseEntity<Map<String, Object>> getBiStats() {
-    //     return ResponseEntity.ok(biService.getDashboardStatsFromPython());
+    // return ResponseEntity.ok(biService.getDashboardStatsFromPython());
     // }
 
     // @GetMapping("/bi/segments")
     // public ResponseEntity<Map<String, Object>> getSegments() {
-    //     return ResponseEntity.ok(biService.getSegmentationData());
+    // return ResponseEntity.ok(biService.getSegmentationData());
     // }
 
     // @GetMapping("/bi/geographic")
     // public ResponseEntity<Map<String, Object>> getGeographic() {
-    //     return ResponseEntity.ok(biService.getGeographicData());
+    // return ResponseEntity.ok(biService.getGeographicData());
     // }
 
     // @GetMapping("/bi/alerts")
     // public ResponseEntity<Map<String, Object>> getAlerts() {
-    //     return ResponseEntity.ok(biService.getAlerts());
+    // return ResponseEntity.ok(biService.getAlerts());
     // }
 
     // @GetMapping("/bi/cohorts")
     // public ResponseEntity<Map<String, Object>> getCohorts() {
-    //     return ResponseEntity.ok(biService.getCohortAnalysis());
+    // return ResponseEntity.ok(biService.getCohortAnalysis());
     // }
 
     // @GetMapping("/bi/engagement")
     // public ResponseEntity<Map<String, Object>> getEngagement() {
-    //     return ResponseEntity.ok(biService.getEngagementAnalysis());
+    // return ResponseEntity.ok(biService.getEngagementAnalysis());
     // }
 
     // @GetMapping("/bi/pricing")
     // public ResponseEntity<Map<String, Object>> getPricing() {
-    //     return ResponseEntity.ok(biService.getPriceSensitivity());
+    // return ResponseEntity.ok(biService.getPriceSensitivity());
     // }
 
     // @GetMapping("/bi/top-risk")
     // public ResponseEntity<Map<String, Object>> getTopRisk(
-    //         @RequestParam(defaultValue = "100") int limit) {
-    //     return ResponseEntity.ok(biService.getTopRiskCustomers(limit));
+    // @RequestParam(defaultValue = "100") int limit) {
+    // return ResponseEntity.ok(biService.getTopRiskCustomers(limit));
     // }
 
     // ========== NUEVOS ENDPOINTS (consultan MySQL directamente) ==========

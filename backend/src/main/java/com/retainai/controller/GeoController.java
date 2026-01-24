@@ -32,8 +32,21 @@ public class GeoController {
         return ResponseEntity.ok(Map.of(
                 "message", "Coordenadas generadas exitosamente para todas las ciudades",
                 "updated_customers", count,
-                "status", "SUCCESS"
-        ));
+                "status", "SUCCESS"));
+    }
+
+    /**
+     * 🏙️ ADMIN ENDPOINT - PHASE 1: MANHATTAN FIX
+     * Llama a: curl -X POST http://localhost:8080/api/geo/populate/manhattan
+     */
+    @PostMapping("/populate/manhattan")
+    public ResponseEntity<?> populateManhattanData() {
+        int count = geoService.populateManhattanCoordinates();
+
+        return ResponseEntity.ok(Map.of(
+                "message", "✅ Corrección aplicada SOLO a clientes de Manhattan",
+                "updated_customers", count,
+                "status", "SUCCESS"));
     }
 
     /**

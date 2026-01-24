@@ -83,12 +83,6 @@ public class Subscription {
     @Column(name = "facturacion_sin_papel")
     private String facturacionSinPapel; // "Si" / "No"
 
-    @Column(name = "nivel_riesgo")
-    private String nivelRiesgo; // "Bajo" / "Medio" / "Alto"
-
-    @Column(name = "score_riesgo")
-    private Double scoreRiesgo; // 0-15
-
     // ========== MÉTODOS CALCULADOS (Feature Engineering) ==========
     // Estos métodos calculan dinámicamente los valores en lugar de leerlos de BD
 
@@ -138,18 +132,6 @@ public class Subscription {
     }
 
     /**
-     * Calcula el flag de riesgo basado en nivel de riesgo
-     * 
-     * @return 1 si es alto riesgo, 0 si no
-     */
-    public Integer calculateRiskFlag() {
-        if (this.nivelRiesgo == null) {
-            return 0;
-        }
-        return "Alto".equalsIgnoreCase(this.nivelRiesgo) ? 1 : 0;
-    }
-
-    /**
      * Obtiene servicios premium count CALCULADO (expuesto en JSON)
      * Siempre calcula dinámicamente, ignora valor de BD
      */
@@ -165,15 +147,6 @@ public class Subscription {
     @JsonProperty("tenureGroup")
     public String getTenureGroupCalculated() {
         return calculateTenureGroup();
-    }
-
-    /**
-     * Obtiene risk flag CALCULADO (expuesto en JSON)
-     * Siempre calcula dinámicamente, ignora valor de BD
-     */
-    @JsonProperty("riskFlag")
-    public Integer getRiskFlagCalculated() {
-        return calculateRiskFlag();
     }
 
     // ========== MÉTODOS DE MIGRACIÓN (Deprecados y Ocultos en JSON) ==========
@@ -197,12 +170,4 @@ public class Subscription {
         return calculateTenureGroup();
     }
 
-    /**
-     * @deprecated Usar getRiskFlagCalculated() en su lugar
-     */
-    @Deprecated
-    @JsonIgnore // No serializar en JSON
-    public Integer getRiskFlagOrCalculate() {
-        return calculateRiskFlag();
-    }
 }

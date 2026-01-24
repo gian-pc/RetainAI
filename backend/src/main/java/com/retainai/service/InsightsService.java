@@ -88,9 +88,9 @@ public class InsightsService {
                     continue;
                 }
 
-                // Solo incluir si el riesgo es Medium o High
+                // Solo incluir si el riesgo es Medio o Alto (en ESPAÑOL, como está en BD)
                 if (prediction != null &&
-                        (prediction.getRisk().equals("High") || prediction.getRisk().equals("Medium"))) {
+                        (prediction.getNivelRiesgo().equals("Alto") || prediction.getNivelRiesgo().equals("Medio"))) {
 
                     // Calcular priority score (0-100)
                     Double priorityScore = calculatePriorityScore(customer, prediction);
@@ -100,7 +100,7 @@ public class InsightsService {
                             .customerName(customer.getId().substring(0, 8)) // Simplificado
                             .ciudad(customer.getCiudad())
                             .segmento(customer.getSegmento())
-                            .risk(prediction.getRisk())
+                            .risk(prediction.getNivelRiesgo())
                             .probability(prediction.getProbability())
                             .mainFactor(prediction.getMainFactor())
                             .nextBestAction(prediction.getNextBestAction())

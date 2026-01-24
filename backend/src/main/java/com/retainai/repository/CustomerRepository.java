@@ -45,12 +45,13 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Page<Customer> findCustomersAtRisk(Pageable pageable);
 
     // 🗺️ Query optimizada para mapa - Proyección DTO directa (sin relaciones)
-    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low', 0.0) " +
+    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low', 0.0D) " +
             "FROM Customer c WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<com.retainai.dto.GeoCustomerDto> findGeoCustomersLight(Pageable pageable);
 
     // 🗺️ Query optimizada para heatmap - Todos los clientes (con caché habilitado)
-    @Query("SELECT c FROM Customer c LEFT JOIN FETCH c.subscription " +
+    @Query("SELECT c FROM Customer c " +
+            "LEFT JOIN FETCH c.subscription " +
             "WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<Customer> findCustomersWithCoordinates();
 

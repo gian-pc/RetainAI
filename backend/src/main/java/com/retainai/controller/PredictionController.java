@@ -75,7 +75,7 @@ public class PredictionController {
                     BatchPredictionResponseDTO.PredictionResult result = BatchPredictionResponseDTO.PredictionResult
                             .builder()
                             .customerId(customerId)
-                            .risk(prediction.getRisk())
+                            .risk(prediction.getNivelRiesgo())
                             .probability(prediction.getProbability())
                             .mainFactor(prediction.getMainFactor())
                             .nextBestAction(prediction.getNextBestAction())
@@ -156,6 +156,36 @@ public class PredictionController {
             log.error("❌ Error en predicción directa", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Error procesando archivo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Predicción masiva de TODOS los clientes en la base de datos
+     * POST: /api/customers/predict/batch-all
+     *
+     * No requiere parámetros - predice automáticamente todos los clientes
+     * Procesa en lotes de 1000 para optimizar rendimiento
+     * Útil para reprocesamiento nocturno o migración de datos
+     */
+    @PostMapping("/predict/batch-all")
+    public ResponseEntity<BatchPredictionResponseDTO> predictAllCustomers() {
+        log.info("🚀 [BATCH-ALL] Iniciando predicción masiva de todos los clientes...");
+
+        try {
+            // Llamar al servicio de predicción masiva
+            BatchPredictionResponseDTO response = pythonIntegrationService.predictAllCustomers();
+
+            log.info("✅ [BATCH-ALL] Predicción masiva completada: {} éxitos, {} errores de {} totales",
+                    response.getSuccessCount(),
+                    response.getErrorCount(),
+                    response.getTotalProcessed());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ [BATCH-ALL] Error en predicción masiva", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error en predicción masiva: " + e.getMessage());
         }
     }
 }

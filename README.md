@@ -245,4 +245,6 @@ mvn spring-boot:run
 | Vanessa Oreza | Data Scientist | [Perfil](https://www.linkedin.com/in/vanessa-oreza-04741919b/) | [Repositorio](https://github.com/vanessa-oreza) |
 | Marcelo Collipal Rojas | Data Scientist | [Perfil](https://www.linkedin.com/in/marcelo-collipal-rojas-79a3693b/) |  [Repositorio](https://github.com/macollipal) |
 
+H12-25-L-Equipo 29 – Data Science
+RetainAI
 

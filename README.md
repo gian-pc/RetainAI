@@ -233,11 +233,16 @@ mvn spring-boot:run
 
 ## 👨‍💻 Integrantes
 
-**gianpc**
-Fullstack AI Developer
+| Nombre | Especialidad | LinkedIn | Github |
+|--------|-------------|----------|
+| Gian Carlos Paucar Cortez | Backend Developer | [Perfil](https://www.linkedin.com/in/gian-pc/) | [Repositorio](https://github.com/gian-pc) | 
+| Juan Francisco Jesús Hernández López | Backend Developer | [Perfil](https://www.linkedin.com/in/juan-francisco-jes%C3%BAs-hern%C3%A1ndez-l%C3%B3pez-7bba50129/) |  [Repositorio](https://github.com/JohnnyBCool) | 
+| Leandro Darío Pollano | Backend Developer | [Perfil](https://www.linkedin.com/in/leandro-dario-pollano/) | [Repositorio](https://github.com/LDP33) |
+| Bianca Perrotta | Backend Developer | [Perfil](https://www.linkedin.com/in/bianca-perrotta/) | [Repositorio](https://github.com/biancaperrotta2) |  
+| Luis Carvajal | Backend Developer | [Perfil](https://www.linkedin.com/in/luis-carlos-carvajal-888bb0125/) | [Repositorio](https://github.com/Luis2025-spec) |
+| Gabriel Gutiérrez Tejeda | Data Scientist | [Perfil](https://www.linkedin.com/in/gabriel-guti%C3%A9rrez-tejeda-23413133/) | [Repositorio](https://github.com/GabrielGitHub1709) |
+| Iván René Cuéllar Rodríguez | Data Scientist | [Perfil](https://www.linkedin.com/in/iv%C3%A1n-ren%C3%A9-cu%C3%A9llar-rodr%C3%ADguez-ab70a7204/) |[Repositorio](https://github.com/Ivanovk82) |
+| Vanessa Oreza | Data Scientist | [Perfil](https://www.linkedin.com/in/vanessa-oreza-04741919b/) | [Repositorio](https://github.com/vanessa-oreza) |
+| Marcelo Collipal Rojas | Data Scientist | [Perfil](https://www.linkedin.com/in/marcelo-collipal-rojas-79a3693b/) |  [Repositorio](https://github.com/macollipal) |
 
-**biancaperrotta2**
-BackEnd Developer
 
-**vanessaoreza**
-Data scientist

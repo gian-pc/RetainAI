@@ -100,31 +100,21 @@ public class DashboardService {
             List<Customer> customersWithCoords = customerRepository.findCustomersWithCoordinates();
             log.info("✅ Encontrados {} clientes con coordenadas", customersWithCoords.size());
 
-            // TEMPORAL: Deshabilitado para evitar timeout
-            // TODO: Optimizar query de predicciones o usar caché
-            /*
-             * // 2. Obtener SOLO la última predicción de cada cliente (query optimizada)
-             * List<AiPrediction> latestPredictions =
-             * predictionRepository.findLatestPredictionForEachCustomer();
-             * log.info("✅ Encontradas {} predicciones", latestPredictions.size());
-             * 
-             * // 3. Crear Map para lookup O(1) - customerId -> AiPrediction
-             * Map<String, AiPrediction> predictionMap = latestPredictions.stream()
-             * .collect(Collectors.toMap(
-             * p -> p.getCustomer().getId(),
-             * p -> p,
-             * (p1, p2) -> p1.getFechaAnalisis().isAfter(p2.getFechaAnalisis()) ? p1 : p2));
-             * 
-             * // 4. Mapear a HeatmapPointDto usando el Map
-             * return customersWithCoords.stream()
-             * .map(customer -> mapToHeatmapPoint(customer,
-             * predictionMap.get(customer.getId())))
-             * .collect(Collectors.toList());
-             */
+            // 2. Obtener SOLO la última predicción de cada cliente (query optimizada)
+            List<AiPrediction> latestPredictions = predictionRepository.findLatestPredictionForEachCustomer();
+            log.info("✅ Encontradas {} predicciones", latestPredictions.size());
 
-            // TEMPORAL: Usar valores por defecto (sin predicciones)
+            // 3. Crear Map para lookup O(1) - customerId -> AiPrediction
+            Map<String, AiPrediction> predictionMap = latestPredictions.stream()
+                    .collect(Collectors.toMap(
+                            p -> p.getCustomer().getId(),
+                            p -> p,
+                            (p1, p2) -> p1.getFechaAnalisis().isAfter(p2.getFechaAnalisis()) ? p1 : p2));
+
+            // 4. Mapear a HeatmapPointDto usando el Map
             return customersWithCoords.stream()
-                    .map(customer -> mapToHeatmapPoint(customer, null))
+                    .map(customer -> mapToHeatmapPoint(customer,
+                            predictionMap.get(customer.getId())))
                     .collect(Collectors.toList());
 
         } catch (Exception e) {

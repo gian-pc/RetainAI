@@ -119,4 +119,33 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
             ORDER BY avgRevenue
             """, nativeQuery = true)
     List<Object[]> getCustomerSegmentation();
+
+
+    // 📅 Análisis de Cohortes por Antigüedad (Tenure Groups)
+    @Query(value = """
+            SELECT
+                CASE
+                    WHEN s.meses_permanencia <= 12 THEN '0-12 meses'
+                    WHEN s.meses_permanencia <= 24 THEN '13-24 meses'
+                    WHEN s.meses_permanencia <= 48 THEN '25-48 meses'
+                    WHEN s.meses_permanencia <= 72 THEN '49-72 meses'
+                    ELSE '73+ meses'
+                END as tenureGroup,
+                COUNT(DISTINCT s.customer_id) as total,
+                SUM(CASE WHEN cm.abandono_historico = true THEN 1 ELSE 0 END) as churned,
+                (SUM(CASE WHEN cm.abandono_historico = true THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) as churnRate
+            FROM subscriptions s
+            JOIN customer_metrics cm ON s.customer_id = cm.customer_id
+            GROUP BY tenureGroup
+            ORDER BY
+                CASE tenureGroup
+                    WHEN '0-12 meses' THEN 1
+                    WHEN '13-24 meses' THEN 2
+                    WHEN '25-48 meses' THEN 3
+                    WHEN '49-72 meses' THEN 4
+                    WHEN '73+ meses' THEN 5
+                END
+            """, nativeQuery = true)
+    List<Object[]> getCohortAnalysis();
+
 }

@@ -271,8 +271,8 @@ public class GeoLocationService {
         return lightDtos.stream()
                 .map(dto -> new GeoCustomerDto(
                         dto.id(),
-                        dto.lat(),
-                        dto.lng(),
+                        dto.latitud(),
+                        dto.longitud(),
                         riskMap.getOrDefault(dto.id(), "Low"), // Risk calculado o Low por default
                         dto.monthlyFee()))
                 .collect(Collectors.toList());

@@ -7,6 +7,7 @@ import com.retainai.dto.PriorityInsightDto;
 import com.retainai.dto.SupportAnalysisDTO;
 import com.retainai.model.Customer;
 import com.retainai.repository.CustomerRepository;
+import com.retainai.dto.CohortAnalysisDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -249,5 +250,24 @@ public class InsightsService {
             case "PREMIUM" -> "Mantener excelencia + Upselling";
             default -> "N/A";
         };
+    }
+
+
+    /**
+     * Obtiene análisis de cohortes por antigüedad
+     */
+    public List<CohortAnalysisDTO> getCohortAnalysis() {
+        log.info("📊 Obteniendo análisis de cohortes desde MySQL");
+
+        List<Object[]> results = customerRepository.getCohortAnalysis();
+
+        return results.stream()
+                .map(row -> CohortAnalysisDTO.builder()
+                        .tenureGroup((String) row[0])
+                        .total(((Number) row[1]).intValue())
+                        .churned(((Number) row[2]).intValue())
+                        .churnRate(((Number) row[3]).doubleValue())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

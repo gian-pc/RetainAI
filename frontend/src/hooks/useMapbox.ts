@@ -46,7 +46,7 @@ export const useMapbox = (mapContainer: React.RefObject<HTMLDivElement | null>) 
                 map.current?.addSource("customers-points", {
                     type: "geojson",
                     data: { type: "FeatureCollection", features: [] },
-                    cluster: true,
+                    cluster: true, // Clustering activado
                     clusterMaxZoom: 14,
                     clusterRadius: 50
                 });

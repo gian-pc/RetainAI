@@ -69,34 +69,38 @@ export const useMapLayers = (
             }
         });
 
-        // Heatmap layer
+        // Heatmap layer - SOLO para zonas de alto riesgo (>70%)
         map.current.addLayer({
             id: "churn-heat",
             type: "heatmap",
             source: "customers",
             maxzoom: 15,
+            layout: {
+                'visibility': 'visible' // Activado para zonas de alto riesgo
+            },
             paint: {
                 "heatmap-weight": [
                     "interpolate", ["linear"], ["get", "mag"],
                     0, 0,
-                    0.5, 0.5,
-                    1, 1
+                    0.7, 0,      // Sin peso para bajo/medio riesgo
+                    0.8, 0.5,    // Empieza a aparecer en 80%+ (muy alto riesgo)
+                    1, 1         // Máximo peso para 100% riesgo
                 ],
-                "heatmap-intensity": 1.2,
+                "heatmap-intensity": 0.8,  // Reducido para efecto más sutil
                 "heatmap-color": [
                     "interpolate", ["linear"], ["heatmap-density"],
                     0, "rgba(0,0,0,0)",
-                    0.1, "rgba(16, 185, 129, 0.1)",  // Verde muy suave (Low risk)
-                    0.3, "rgba(245, 158, 11, 0.3)",  // Amarillo/naranja (Medium risk)
-                    0.6, "rgba(239, 68, 68, 0.5)",   // Rojo (High risk)
-                    1, "rgba(220, 38, 38, 0.7)"      // Rojo intenso (Very high risk)
+                    0.2, "rgba(245, 158, 11, 0.3)",  // Naranja suave
+                    0.5, "rgba(239, 68, 68, 0.6)",   // Rojo medio
+                    0.8, "rgba(220, 38, 38, 0.8)",   // Rojo intenso
+                    1, "rgba(185, 28, 28, 0.9)"      // Rojo muy intenso
                 ],
                 "heatmap-radius": [
                     "interpolate", ["linear"], ["zoom"],
-                    0, 2,
-                    13, 25
+                    0, 3,
+                    13, 30
                 ],
-                "heatmap-opacity": 0.6
+                "heatmap-opacity": 0.4  // Reducido para que no domine visualmente
             },
         });
 
@@ -184,6 +188,7 @@ export const useMapLayers = (
                 "Low", "#10b981",
                 "#94a3b8"
             ]);
+            // Mantener heatmap visible para zonas de alto riesgo
             map.current.setLayoutProperty('churn-heat', 'visibility', 'visible');
 
             ['borough-fill', 'borough-boundaries', 'borough-labels'].forEach(layer => {

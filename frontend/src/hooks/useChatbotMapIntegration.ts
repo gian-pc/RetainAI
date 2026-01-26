@@ -90,18 +90,11 @@ function zoomToCustomers(map: mapboxgl.Map, customerIds: string[]) {
         return;
     }
 
-    console.log('📊 Total features en mapa:', data.features.length);
-
     const customerFeatures = data.features.filter((f: any) =>
         customerIds.includes(f.properties.customerId)
     );
 
-    console.log('✅ Features encontrados:', customerFeatures.length, customerFeatures.map((f: any) => f.properties.customerId));
-
-    if (customerFeatures.length === 0) {
-        console.warn('⚠️ No se encontraron features para los customerIds proporcionados');
-        return;
-    }
+    if (customerFeatures.length === 0) return;
 
     // Calcular bounds
     const bounds = new mapboxgl.LngLatBounds();
@@ -109,21 +102,87 @@ function zoomToCustomers(map: mapboxgl.Map, customerIds: string[]) {
         bounds.extend(feature.geometry.coordinates);
     });
 
-    // Ajustar maxZoom según número de clientes
-    // Si es 1 cliente: zoom 16 (muy cercano)
-    // Si son 2-3 clientes: zoom 13 (medio)
-    // Si son 4+ clientes: zoom 11 (amplio)
     const maxZoom = customerFeatures.length === 1 ? 16 :
         customerFeatures.length <= 3 ? 13 : 11;
 
-    console.log(`🎯 Haciendo zoom a ${customerFeatures.length} cliente(s) con maxZoom: ${maxZoom}`);
-
-    // Hacer zoom con padding y zoom alto para desclusterizar
     map.fitBounds(bounds, {
         padding: { top: 150, bottom: 150, left: 150, right: 150 },
         maxZoom: maxZoom,
         duration: 1500
     });
+
+    // Agregar efecto de ondas si es un solo cliente
+    if (customerFeatures.length === 1) {
+        const coords = customerFeatures[0].geometry.coordinates;
+        addRippleEffect(map, coords);
+    }
+}
+
+/**
+ * Agrega efecto de ondas/ripple en una ubicación específica
+ */
+function addRippleEffect(map: mapboxgl.Map, coordinates: [number, number]) {
+    // Crear elemento HTML para el efecto de ondas
+    const rippleEl = document.createElement('div');
+    rippleEl.className = 'ripple-marker';
+    rippleEl.innerHTML = `
+        <div class="ripple-circle"></div>
+        <div class="ripple-circle ripple-delay-1"></div>
+        <div class="ripple-circle ripple-delay-2"></div>
+    `;
+
+    // Agregar estilos inline para la animación
+    const style = document.createElement('style');
+    style.textContent = `
+        .ripple-marker {
+            width: 20px;
+            height: 20px;
+            position: relative;
+        }
+        .ripple-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ef4444;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: ripple-pulse 2s ease-out infinite;
+            opacity: 0;
+        }
+        .ripple-delay-1 {
+            animation-delay: 0.6s;
+        }
+        .ripple-delay-2 {
+            animation-delay: 1.2s;
+        }
+        @keyframes ripple-pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(4);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Crear marcador temporal
+    const marker = new mapboxgl.Marker({
+        element: rippleEl,
+        anchor: 'center'
+    })
+        .setLngLat(coordinates)
+        .addTo(map);
+
+    // Eliminar el marcador después de 3 segundos
+    setTimeout(() => {
+        marker.remove();
+        style.remove();
+    }, 3000);
 }
 
 /**
@@ -152,59 +211,38 @@ function zoomToBorough(map: mapboxgl.Map, borough: string) {
  * Resalta clientes en el mapa
  */
 function highlightCustomers(map: mapboxgl.Map, customerIds: string[], highlightType: string) {
-    // Crear un filtro para los clientes mencionados
     const filter = ['in', ['get', 'customerId'], ['literal', customerIds]];
 
-    // Actualizar el estilo de la capa de puntos para resaltar
     if (map.getLayer('customers-points')) {
-        // Tamaño mucho más grande para clientes resaltados
         map.setPaintProperty('customers-points', 'circle-radius', [
-            'case',
-            filter,
-            20, // MUY grande para clientes resaltados
-            6   // Más pequeño para otros
+            'case', filter, 20, 6
         ]);
 
-        // Borde muy grueso y de color brillante
         map.setPaintProperty('customers-points', 'circle-stroke-width', [
-            'case',
-            filter,
-            6, // Borde muy grueso para clientes resaltados
-            1  // Borde delgado para otros
+            'case', filter, 6, 1
         ]);
 
         map.setPaintProperty('customers-points', 'circle-stroke-color', [
-            'case',
-            filter,
+            'case', filter,
             highlightType === 'critical' ? '#dc2626' : highlightType === 'warning' ? '#f59e0b' : '#3b82f6',
             '#ffffff'
         ]);
 
-        // Opacidad: resaltados 100%, otros 30%
         map.setPaintProperty('customers-points', 'circle-opacity', [
-            'case',
-            filter,
-            1.0, // Totalmente opaco para resaltados
-            0.3  // Semi-transparente para otros
+            'case', filter, 1.0, 0.3
         ]);
 
-        // Color del círculo: amarillo brillante para resaltados
         map.setPaintProperty('customers-points', 'circle-color', [
             'case',
             filter,
-            '#fbbf24', // Amarillo brillante para resaltados
+            '#fbbf24',
             [
-                'interpolate',
-                ['linear'],
-                ['get', 'mag'],
-                0, '#22c55e',
-                0.5, '#f59e0b',
-                1, '#ef4444'
+                'interpolate', ['linear'], ['get', 'mag'],
+                0, '#22c55e', 0.5, '#f59e0b', 1, '#ef4444'
             ]
         ]);
     }
 
-    // También actualizar la capa de heatmap para reducir su opacidad
     if (map.getLayer('customers-heat')) {
         map.setPaintProperty('customers-heat', 'heatmap-opacity', 0.3);
     }
@@ -214,19 +252,17 @@ function highlightCustomers(map: mapboxgl.Map, customerIds: string[], highlightT
  * Anima clientes con efecto de pulso
  */
 function animateCustomers(map: mapboxgl.Map, customerIds: string[]) {
+    // 1. Efecto de pulso en el mapa (existente)
     let pulseCount = 0;
-    const maxPulses = 5; // Más pulsos para mayor visibilidad
+    const maxPulses = 5;
 
     const pulse = () => {
         if (pulseCount >= maxPulses) {
-            // Al terminar, restaurar el tamaño resaltado normal
+            // Restaurar tamaño normal
             const filter = ['in', ['get', 'customerId'], ['literal', customerIds]];
             if (map.getLayer('customers-points')) {
                 map.setPaintProperty('customers-points', 'circle-radius', [
-                    'case',
-                    filter,
-                    20,
-                    6
+                    'case', filter, 20, 6
                 ]);
             }
             return;
@@ -234,28 +270,16 @@ function animateCustomers(map: mapboxgl.Map, customerIds: string[]) {
 
         const filter = ['in', ['get', 'customerId'], ['literal', customerIds]];
 
-        // Aumentar tamaño dramáticamente
         if (map.getLayer('customers-points')) {
+            // Aumentar tamaño
             map.setPaintProperty('customers-points', 'circle-radius', [
-                'case',
-                filter,
-                28, // MUY grande durante la animación
-                6
+                'case', filter, 28, 6
             ]);
 
-            // Cambiar a color más brillante durante el pulso
+            // Color más brillante
             map.setPaintProperty('customers-points', 'circle-color', [
-                'case',
-                filter,
-                '#fde047', // Amarillo muy brillante
-                [
-                    'interpolate',
-                    ['linear'],
-                    ['get', 'mag'],
-                    0, '#22c55e',
-                    0.5, '#f59e0b',
-                    1, '#ef4444'
-                ]
+                'case', filter, '#fde047',
+                ['interpolate', ['linear'], ['get', 'mag'], 0, '#22c55e', 0.5, '#f59e0b', 1, '#ef4444']
             ]);
         }
 
@@ -263,33 +287,21 @@ function animateCustomers(map: mapboxgl.Map, customerIds: string[]) {
             // Reducir tamaño
             if (map.getLayer('customers-points')) {
                 map.setPaintProperty('customers-points', 'circle-radius', [
-                    'case',
-                    filter,
-                    20,
-                    6
+                    'case', filter, 20, 6
                 ]);
 
-                // Volver al color amarillo normal
+                // Color normal
                 map.setPaintProperty('customers-points', 'circle-color', [
-                    'case',
-                    filter,
-                    '#fbbf24',
-                    [
-                        'interpolate',
-                        ['linear'],
-                        ['get', 'mag'],
-                        0, '#22c55e',
-                        0.5, '#f59e0b',
-                        1, '#ef4444'
-                    ]
+                    'case', filter, '#fbbf24',
+                    ['interpolate', ['linear'], ['get', 'mag'], 0, '#22c55e', 0.5, '#f59e0b', 1, '#ef4444']
                 ]);
             }
 
             pulseCount++;
             if (pulseCount < maxPulses) {
-                setTimeout(pulse, 400); // Pausa entre pulsos
+                setTimeout(pulse, 400);
             }
-        }, 400); // Duración del pulso
+        }, 400);
     };
 
     pulse();

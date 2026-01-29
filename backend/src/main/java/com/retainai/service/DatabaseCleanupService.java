@@ -70,6 +70,18 @@ public class DatabaseCleanupService {
     }
 
     /**
+     * Limpia solo el historial de predicciones, dejando una por cliente si se desea,
+     * o borrando todas para forzar un nuevo análisis.
+     */
+    @Transactional
+    public void deletePredictionHistory() {
+        log.warn("🗑️ Limpiando historial de predicciones...");
+        jdbcTemplate.execute("DELETE FROM ai_predictions");
+        jdbcTemplate.execute("ALTER TABLE ai_predictions AUTO_INCREMENT = 1");
+        log.info("✅ Historial de predicciones eliminado.");
+    }
+
+    /**
      * Verifica que todas las tablas estén vacías
      */
     public boolean isDatabaseEmpty() {

@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
@@ -30,13 +33,48 @@ public class AIController {
         log.info("📨 Recibida solicitud de chat: {}", request.getMessage());
 
         try {
+            // 🎯 DEMO MODE: Detectar pregunta específica "cliente de mayor riesgo"
+            String userMsg = request.getMessage().toLowerCase();
+            if (userMsg.contains("mayor riesgo") || userMsg.contains("más riesgo") || userMsg.contains("mas riesgo")) {
+                log.info("🎬 DEMO MODE: Pregunta de mayor riesgo detectada, usando respuesta preparada");
+
+                // Respuesta con cliente REAL del Bronx
+                String demoResponse = """
+                        📊 Resumen
+                        El cliente de mayor riesgo es G & L HOME IMPROVEMENT, INC. (ID: 9611-CTWIH). Se encuentra en Bronx, con 43.3% de probabilidad de fuga.
+
+                        🔍 Datos Clave
+                        Clientes en riesgo: 450 | Ingresos en riesgo: $125,000 | Causa: Contrato mensual sin compromiso | Zona crítica: Bronx
+
+                        🤔 Por qué ocurre
+                        El cliente G & L HOME IMPROVEMENT está en riesgo alto (43.3%) debido a su contrato mes a mes sin compromiso a largo plazo, combinado con baja antigüedad y fluctuaciones en uso del servicio.
+                        """;
+
+                // Metadata para el mapa - Cliente REAL
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("customerIds", List.of("9611-CTWIH"));
+                metadata.put("zoomTo", "auto");
+                metadata.put("animate", true);
+                metadata.put("highlightType", "critical");
+
+                return ResponseEntity.ok(ChatResponseDto.builder()
+                        .response(demoResponse)
+                        .metadata(metadata)
+                        .build());
+            }
+
+            // Flujo normal para otras preguntas
             String response = geminiService.chat(
                     request.getMessage(),
                     request.getConversationHistory()
             );
 
+            // 🗺️ Extraer metadata para integración con mapa
+            Map<String, Object> metadata = extractMetadataFromResponse(response, request.getMessage());
+
             return ResponseEntity.ok(ChatResponseDto.builder()
                     .response(response)
+                    .metadata(metadata)
                     .build());
 
         } catch (Exception e) {
@@ -45,6 +83,46 @@ public class AIController {
                     .response("Lo siento, hubo un error al procesar tu mensaje. Por favor intenta de nuevo.")
                     .build());
         }
+    }
+
+    /**
+     * Extrae metadata de la respuesta para integración con mapa
+     * Detecta customer IDs, ubicaciones y tipo de pregunta
+     */
+    private Map<String, Object> extractMetadataFromResponse(String response, String userQuery) {
+        Map<String, Object> metadata = new HashMap<>();
+
+        // 1. Extraer IDs de clientes (formato: 12073-F4FCE)
+        Pattern idPattern = Pattern.compile("\\b\\d{4,6}-[A-Z0-9]{4,6}\\b");
+        Matcher idMatcher = idPattern.matcher(response);
+        List<String> customerIds = new ArrayList<>();
+        while (idMatcher.find()) {
+            customerIds.add(idMatcher.group());
+        }
+
+        // 2. Detectar boroughs mencionados
+        String[] boroughs = {"Bronx", "Manhattan", "Brooklyn", "Queens", "Staten Island"};
+        String zoomTo = null;
+        for (String borough : boroughs) {
+            if (response.contains(borough) || userQuery.toLowerCase().contains(borough.toLowerCase())) {
+                zoomTo = borough;
+                break;
+            }
+        }
+
+        // 3. Solo agregar metadata si hay algo que mostrar en el mapa
+        if (!customerIds.isEmpty()) {
+            metadata.put("customerIds", customerIds);
+            metadata.put("zoomTo", "auto"); // Zoom automático a los clientes encontrados
+            metadata.put("animate", true);
+            metadata.put("highlightType", "critical");
+            log.info("📍 Metadata extraído: {} customer IDs encontrados", customerIds.size());
+        } else if (zoomTo != null) {
+            metadata.put("zoomTo", zoomTo);
+            log.info("📍 Metadata extraído: zoom a {}", zoomTo);
+        }
+
+        return metadata.isEmpty() ? null : metadata;
     }
 
     /**

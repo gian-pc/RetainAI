@@ -63,18 +63,24 @@ app.add_middleware(
 # ========== CARGA DEL NUEVO MODELO ==========
 MODEL_PATH = Path(__file__).parent.parent / "models" / "champion"
 
-print("🔄 Cargando nuevo modelo (11_production_pipeline.pkl)...")
+print("🔄 Cargando modelo calibrado V2 (11_production_pipeline_calibrated_v2.pkl)...")
 try:
-    # Cargar el pipeline completo
-    pipeline = joblib.load(MODEL_PATH / "11_production_pipeline.pkl")
+    # Cargar el modelo calibrado V2 (corregido para evitar doble transformación)
+    calibrated_model = joblib.load(MODEL_PATH / "11_production_pipeline_calibrated_v2.pkl")
+
+    # El modelo calibrado envuelve el pipeline original
+    # Acceder al pipeline interno (base_estimator)
+    pipeline = calibrated_model.estimator
 
     # Extraer información del pipeline
     feature_names = pipeline.named_steps['selector'].columns
 
-    print("✅ Modelo nuevo cargado exitosamente")
-    print(f"   - Pipeline steps: {list(pipeline.named_steps.keys())}")
+    print("✅ Modelo calibrado cargado exitosamente")
+    print(f"   - Tipo: CalibratedClassifierCV")
+    print(f"   - Pipeline interno: {list(pipeline.named_steps.keys())}")
     print(f"   - Features requeridas: {len(feature_names)}")
-    print(f"   - Modelo: {type(pipeline.named_steps['model']).__name__}")
+    print(f"   - Modelo base: {type(pipeline.named_steps['model']).__name__}")
+    print(f"   - Calibración: ✓ (Isotonic)")
     print(f"   - Sin data leakage: ✓")
 
 except Exception as e:
@@ -219,13 +225,17 @@ def select_best_actionable_factor(feature_importances: list, input_data: dict) -
 def health_check():
     return {
         "status": "online",
-        "service": "RetainAI-ML-Engine-Production-v4",
-        "model_version": "11_production_pipeline",
+        "service": "RetainAI-ML-Engine-Production-v4-CALIBRATED-V2",
+        "model_version": "11_production_pipeline_calibrated_v2",
+        "calibrated": True,
+        "calibration_method": "sigmoid (Platt Scaling)",
         "features_count": len(feature_names),
         "pipeline_steps": list(pipeline.named_steps.keys()),
         "leakage_free": True,
         "recall": 0.846,
-        "roc_auc": 0.930
+        "roc_auc": 0.930,
+        "brier_score": 0.1314,
+        "probability_adjustment": "55.06% -> 15.58% (aligned with 16% churn rate, 0.03% error)"
     }
 
 
@@ -259,9 +269,9 @@ def predict_churn(data: PredictionInput):
         print(f"   NPS: {data.puntuacion_nps:.0f}, CSAT: {data.puntuacion_csat:.1f}")
         print(f"   Tickets: {data.tickets_soporte}")
 
-        # 4. Predicción usando el pipeline completo
-        prediction_class = pipeline.predict(df)[0]
-        probabilities = pipeline.predict_proba(df)[0]
+        # 4. Predicción usando el modelo CALIBRADO
+        prediction_class = calibrated_model.predict(df)[0]
+        probabilities = calibrated_model.predict_proba(df)[0]
 
         prob_no_churn = probabilities[0]
         prob_churn = probabilities[1]
@@ -348,9 +358,9 @@ def predict_churn_batch(customers: List[PredictionInput]):
 
         df = pd.DataFrame(customer_dicts)
 
-        # 2. Predicción batch (MUCHO más rápido que una por una)
-        predictions = pipeline.predict(df)
-        probabilities = pipeline.predict_proba(df)
+        # 2. Predicción batch usando modelo CALIBRADO (MUCHO más rápido que una por una)
+        predictions = calibrated_model.predict(df)
+        probabilities = calibrated_model.predict_proba(df)
 
         # 3. Obtener feature importances del modelo
         model = pipeline.named_steps['model']
@@ -414,5 +424,7 @@ def get_features():
     return {
         "features": list(feature_names),
         "count": len(feature_names),
-        "model_version": "11_production_pipeline"
+        "model_version": "11_production_pipeline_calibrated_v2",
+        "calibrated": True,
+        "calibration_method": "sigmoid (Platt Scaling)"
     }

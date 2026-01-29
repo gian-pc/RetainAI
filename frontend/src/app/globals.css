@@ -3,6 +3,50 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Semantic Colors - Light */
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --card-bg: rgba(255, 255, 255, 0.98);
+  --card-border: rgba(243, 244, 246, 1);
+  /* gray-100 (lighter than 200) */
+  --page-bg: #f9fafb;
+  /* gray-50 */
+  --surface-bg: rgba(255, 255, 255, 0.90);
+  /* Semi-transparent for buttons */
+  --text-primary: #1e293b;
+  /* slate-800 */
+  --text-secondary: #64748b;
+  /* slate-500 */
+  --active-item-bg: #ffffff;
+  --active-item-text: #4f46e5;
+  /* indigo-600 */
+}
+
+.dark {
+  --background: #0f172a;
+  /* Slate 900 */
+  --foreground: #f8fafc;
+  /* Slate 50 */
+
+  /* Semantic Colors - Dark */
+  --nav-bg: rgba(15, 23, 42, 0.9);
+  /* slate-900/90 */
+  --card-bg: rgba(30, 41, 59, 0.8);
+  /* slate-800/80 */
+  --card-border: rgba(51, 65, 85, 1);
+  /* slate-700 */
+  --page-bg: #0f172a;
+  /* slate-900 */
+  --surface-bg: rgba(30, 41, 59, 0.5);
+  /* slate-800/50 */
+  --text-primary: #f8fafc;
+  /* slate-50 */
+  --text-secondary: #94a3b8;
+  /* slate-400 */
+  --active-item-bg: #1e293b;
+  /* slate-800 */
+  --active-item-text: #818cf8;
+  /* indigo-400 */
 }
 
 @theme inline {
@@ -12,12 +56,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+
 
 html {
   height: 100%;
@@ -58,4 +97,38 @@ nextjs-portal,
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* Mapbox Popup Customization */
+.custom-popup .mapboxgl-popup-content {
+  padding: 0 !important;
+  background: transparent !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.custom-popup .mapboxgl-popup-close-button {
+  top: 10px !important;
+  right: 10px !important;
+  font-size: 18px !important;
+  color: #64748b !important;
+  /* slate-500 */
+  padding: 4px !important;
+  background: transparent !important;
+  border-radius: 50% !important;
+  z-index: 10 !important;
+}
+
+.custom-popup .mapboxgl-popup-close-button:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+  /* slate-900 */
+}
+
+/* Hide default tip if customized card has its own shape, or style it to match */
+.custom-popup .mapboxgl-popup-tip {
+  border-top-color: #f9fafb !important;
+  /* match header gray-50 if tip is at top, or white if bottom ? Usually bottom. */
+  /* If bottom tip, it connects to white body. */
+  border-bottom-color: #ffffff !important;
 }

@@ -14,7 +14,17 @@ public interface PredictionRepository extends JpaRepository<AiPrediction, Long> 
     List<AiPrediction> findLatestByCustomerIds(@Param("customerIds") List<String> customerIds);
 
     // 🔥 Top clientes de alto riesgo para chatbot
-    @Query("SELECT p FROM AiPrediction p ORDER BY p.probabilidadFuga DESC")
+    @Query(value = """
+            SELECT p.* FROM ai_predictions p
+            INNER JOIN (
+                SELECT customer_id, MAX(fecha_analisis) as max_fecha
+                FROM ai_predictions
+                GROUP BY customer_id
+            ) latest ON p.customer_id = latest.customer_id
+                    AND p.fecha_analisis = latest.max_fecha
+            ORDER BY p.probabilidad_fuga DESC
+            LIMIT 3
+            """, nativeQuery = true)
     List<AiPrediction> findTop3HighRiskCustomers();
 
     // 🗺️ Query optimizada para obtener SOLO la última predicción de cada cliente

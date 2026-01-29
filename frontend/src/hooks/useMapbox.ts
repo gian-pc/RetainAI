@@ -26,8 +26,8 @@ export const useMapbox = (mapContainer: React.RefObject<HTMLDivElement | null>) 
             map.current = new mapboxgl.Map({
                 container: mapContainer.current,
                 style: "mapbox://styles/mapbox/light-v11",
-                center: [-73.96, 40.70],
-                zoom: 9.5,
+                center: [-73.96, 40.71],
+                zoom: 9.3,
                 pitch: 0,
                 projection: { name: 'mercator' }
             });
@@ -36,28 +36,52 @@ export const useMapbox = (mapContainer: React.RefObject<HTMLDivElement | null>) 
                 console.error("Error de Mapbox:", e);
             });
 
+            const addSources = () => {
+                const mapInstance = map.current;
+                if (!mapInstance) return;
+
+                if (!mapInstance.getSource("customers")) {
+                    mapInstance.addSource("customers", {
+                        type: "geojson",
+                        data: { type: "FeatureCollection", features: [] },
+                    });
+                }
+
+                if (!mapInstance.getSource("customers-points")) {
+                    mapInstance.addSource("customers-points", {
+                        type: "geojson",
+                        data: { type: "FeatureCollection", features: [] },
+                        cluster: false
+                    });
+                }
+
+                if (!mapInstance.getSource("customers-clustered")) {
+                    mapInstance.addSource("customers-clustered", {
+                        type: "geojson",
+                        data: { type: "FeatureCollection", features: [] },
+                        cluster: true,
+                        clusterMaxZoom: 14,
+                        clusterRadius: 50
+                    });
+                }
+
+                if (!mapInstance.getSource("boroughs")) {
+                    mapInstance.addSource('boroughs', {
+                        type: 'geojson',
+                        data: '/nyc-boroughs.geojson',
+                        promoteId: 'cartodb_id'
+                    });
+                }
+            };
+
             map.current.on("load", () => {
-                // Add sources
-                map.current?.addSource("customers", {
-                    type: "geojson",
-                    data: { type: "FeatureCollection", features: [] },
-                });
-
-                map.current?.addSource("customers-points", {
-                    type: "geojson",
-                    data: { type: "FeatureCollection", features: [] },
-                    cluster: true,
-                    clusterMaxZoom: 14,
-                    clusterRadius: 50
-                });
-
-                map.current?.addSource('boroughs', {
-                    type: 'geojson',
-                    data: '/nyc-boroughs.geojson',
-                    promoteId: 'cartodb_id'
-                });
-
+                addSources();
                 setMapReady(true);
+            });
+
+            // Re-add sources when style changes (e.g. Dark Mode toggle)
+            map.current.on("style.load", () => {
+                addSources();
             });
         } catch (error) {
             console.error("Error inicializando Mapbox:", error);

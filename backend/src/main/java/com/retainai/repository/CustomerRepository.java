@@ -45,7 +45,7 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Page<Customer> findCustomersAtRisk(Pageable pageable);
 
     // 🗺️ Query optimizada para mapa - Proyección DTO directa (sin relaciones)
-    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low', 0.0D) " +
+    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low') " +
             "FROM Customer c WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<com.retainai.dto.GeoCustomerDto> findGeoCustomersLight(Pageable pageable);
 
@@ -54,6 +54,36 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
             "LEFT JOIN FETCH c.subscription " +
             "WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<Customer> findCustomersWithCoordinates();
+
+    @Query(value = """
+            SELECT
+                c.id as customerId,
+                c.nombre as nombre,
+                c.latitud as latitude,
+                c.longitud as longitude,
+                COALESCE(p.probabilidad_fuga, 0.5) as churnProbability,
+                COALESCE(p.nivel_riesgo, 'Medio') as riskLevel,
+                c.segmento as segmento,
+                s.tipo_contrato as tipoContrato,
+                s.cuota_mensual as cargoMensual,
+                s.meses_permanencia as antiguedad,
+                c.borough as borough,
+                c.ciudad as ciudad,
+                c.ingreso_mediano as ingresoMediano,
+                c.densidad_poblacional as densidadPoblacional
+            FROM customers c
+            LEFT JOIN (
+                SELECT p1.* FROM ai_predictions p1
+                INNER JOIN (
+                    SELECT customer_id, MAX(fecha_analisis) as max_fecha
+                    FROM ai_predictions
+                    GROUP BY customer_id
+                ) p2 ON p1.customer_id = p2.customer_id AND p1.fecha_analisis = p2.max_fecha
+            ) p ON c.id = p.customer_id
+            LEFT JOIN subscriptions s ON c.id = s.customer_id
+            WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL
+            """, nativeQuery = true)
+    List<Object[]> findHeatmapDataNative();
 
     // 🎯 Query para obtener clientes ACTIVOS candidatos (muestra aleatoria)
     // Filtra SOLO clientes activos (abandonoHistorico = false o null)
@@ -119,4 +149,33 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
             ORDER BY avgRevenue
             """, nativeQuery = true)
     List<Object[]> getCustomerSegmentation();
+
+
+    // 📅 Análisis de Cohortes por Antigüedad (Tenure Groups)
+    @Query(value = """
+            SELECT
+                CASE
+                    WHEN s.meses_permanencia <= 12 THEN '0-12 meses'
+                    WHEN s.meses_permanencia <= 24 THEN '13-24 meses'
+                    WHEN s.meses_permanencia <= 48 THEN '25-48 meses'
+                    WHEN s.meses_permanencia <= 72 THEN '49-72 meses'
+                    ELSE '73+ meses'
+                END as tenureGroup,
+                COUNT(DISTINCT s.customer_id) as total,
+                SUM(CASE WHEN cm.abandono_historico = true THEN 1 ELSE 0 END) as churned,
+                (SUM(CASE WHEN cm.abandono_historico = true THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) as churnRate
+            FROM subscriptions s
+            JOIN customer_metrics cm ON s.customer_id = cm.customer_id
+            GROUP BY tenureGroup
+            ORDER BY
+                CASE tenureGroup
+                    WHEN '0-12 meses' THEN 1
+                    WHEN '13-24 meses' THEN 2
+                    WHEN '25-48 meses' THEN 3
+                    WHEN '49-72 meses' THEN 4
+                    WHEN '73+ meses' THEN 5
+                END
+            """, nativeQuery = true)
+    List<Object[]> getCohortAnalysis();
+
 }

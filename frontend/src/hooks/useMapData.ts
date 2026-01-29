@@ -14,7 +14,8 @@ export const useMapData = (
     map: React.RefObject<mapboxgl.Map | null>,
     heatmapData: HeatmapPoint[],
     mapReady: boolean,
-    activeCity: string | null
+    activeCity: string | null,
+    styleLoadedKey?: number // New optional dependency
 ) => {
     useEffect(() => {
         if (!map.current || !mapReady || heatmapData.length === 0) {
@@ -57,5 +58,11 @@ export const useMapData = (
         if (sourcePoints) {
             sourcePoints.setData(geoJson);
         }
-    }, [map, heatmapData, mapReady, activeCity]);
+
+        // Alimentar el source de clustering con los mismos datos
+        const sourceClustered = map.current.getSource("customers-clustered") as mapboxgl.GeoJSONSource;
+        if (sourceClustered) {
+            sourceClustered.setData(geoJson);
+        }
+    }, [map, heatmapData, mapReady, activeCity, styleLoadedKey]);
 };

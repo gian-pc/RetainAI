@@ -21,6 +21,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import com.retainai.model.AiPrediction;
 import com.retainai.repository.PredictionRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +36,7 @@ public class PythonIntegrationService {
         private final CustomerRepository customerRepository;
         private final RestTemplate restTemplate;
         private final PredictionRepository predictionRepository;
+        private final DatabaseCleanupService databaseCleanupService;
 
         // Leemos la URL del application.properties
         @Value("${app.python-service.url}")
@@ -236,13 +239,14 @@ public class PythonIntegrationService {
                 // ========== CALCULAR CAMPOS DERIVADOS ==========
 
                 // 1. Intensidad de uso = conexiones * promedio
+                // ✅ VALORES POR DEFECTO REALISTAS (evitan sesgo hacia alto riesgo)
                 Double conexiones = metrics != null && metrics.getConeccionesMensuales() != null
                                 ? metrics.getConeccionesMensuales().doubleValue()
-                                : 0.0;
+                                : 10.0; // Uso mínimo vital (antes: 0.0)
                 Double promedioConex = metrics != null && metrics.getPromedioConeccion() != null
                                 ? metrics.getPromedioConeccion().doubleValue()
-                                : 0.0;
-                Double intensidadUso = conexiones * promedioConex;
+                                : 10.0; // 10 minutos por sesión promedio (antes: 0.0)
+                Double intensidadUso = conexiones * promedioConex; // = 100.0 por defecto
 
                 // 2. Ratio carga financiera = cargo_mensual / ingresos_totales
                 Double cargoMensual = sub.getCuotaMensual() != null ? sub.getCuotaMensual() : 50.0;
@@ -262,17 +266,17 @@ public class PythonIntegrationService {
                                 // scoreRiesgo eliminado - modelo reentrenado sin data leakage
                                 .diasActivosSemanales(metrics != null && metrics.getDiasActivosSemanales() != null
                                                 ? metrics.getDiasActivosSemanales()
-                                                : 0)
+                                                : 3) // Uso moderado (antes: 0)
                                 .promedioConexion(promedioConex)
                                 .conexionesMensuales(metrics != null && metrics.getConeccionesMensuales() != null
                                                 ? metrics.getConeccionesMensuales()
-                                                : 0)
+                                                : 10) // Uso mínimo vital (antes: 0)
                                 .caracteristicasUsadas(metrics != null && metrics.getCaracteristicasUsadas() != null
                                                 ? metrics.getCaracteristicasUsadas()
                                                 : 0)
                                 .diasUltimaConexion(metrics != null && metrics.getDiasUltimaConeccion() != null
                                                 ? metrics.getDiasUltimaConeccion()
-                                                : 0)
+                                                : 7) // Una semana de inactividad moderada (antes: 0)
                                 .intensidadUso(intensidadUso)
                                 .ticketsSoporte(metrics != null && metrics.getTicketsSoporte() != null
                                                 ? metrics.getTicketsSoporte()
@@ -289,7 +293,7 @@ public class PythonIntegrationService {
                                 .ratioCargaFinanciera(ratioCarga)
                                 .tasaAperturaEmail(metrics != null && metrics.getTasaAperturaEmail() != null
                                                 ? metrics.getTasaAperturaEmail().doubleValue()
-                                                : 0.5)
+                                                : 0.20) // 20% de apertura promedio (antes: 0.5 o 50%)
                                 .erroresPago(sub.getErroresPago() != null ? sub.getErroresPago() : 0)
                                 .antiguedad(sub.getMesesPermanencia() != null ? sub.getMesesPermanencia() : 1)
                                 .ingresosTotales(ingresosTotales)
@@ -312,12 +316,21 @@ public class PythonIntegrationService {
          * ⚡ Predicción batch masiva OPTIMIZADA para TODOS los clientes en la BD
          * 🚀 Usa batch inserts (saveAll) - 10-15x más rápido que saves individuales
          * 📦 Procesa en lotes de 5000 (Python puede manejar grandes cantidades)
+         * 🧹 LIMPIEZA DE CACHÉ: Al generar nuevas predicciones, se invalidan los datos del mapa
          *
          * @return BatchPredictionResponseDTO con resumen y resultados
          */
+        @Caching(evict = {
+                @CacheEvict(value = "heatmapData", allEntries = true),
+                @CacheEvict(value = "geoCustomers", allEntries = true),
+                @CacheEvict(value = "dashboardStats", allEntries = true)
+        })
         public BatchPredictionResponseDTO predictAllCustomers() {
                 log.info("🚀 [BATCH-ALL] Iniciando predicción masiva OPTIMIZADA de TODOS los clientes...");
                 long startTime = System.currentTimeMillis();
+
+                // 0. Limpiar historial previo para evitar duplicados por cliente
+                databaseCleanupService.deletePredictionHistory();
 
                 // 1. Obtener TODOS los clientes de la BD
                 List<Customer> allCustomers = customerRepository.findAll();
@@ -341,7 +354,8 @@ public class PythonIntegrationService {
                                 .map(this::mapToFlatJsonV2)
                                 .collect(Collectors.toList());
 
-                // 3. Dividir en lotes GRANDES de 5000 (Python puede manejar esto eficientemente)
+                // 3. Dividir en lotes GRANDES de 5000 (Python puede manejar esto
+                // eficientemente)
                 int batchSize = 5000;
                 List<List<PredictionInputDtoV2>> batches = new ArrayList<>();
                 for (int i = 0; i < allPayloads.size(); i += batchSize) {
@@ -396,6 +410,10 @@ public class PythonIntegrationService {
                                                         .motivoPrincipal(response.getMainFactor())
                                                         .fechaAnalisis(timestamp)
                                                         .build();
+
+                                        // ✅ CRÍTICO: Calcular nivel_riesgo explícitamente
+                                        // El @PrePersist no siempre se ejecuta en batch inserts (saveAll)
+                                        aiPrediction.calculateRiskLevel();
 
                                         predictionsToSave.add(aiPrediction);
                                 }
@@ -467,9 +485,103 @@ public class PythonIntegrationService {
         }
 
         /**
-         * Método público para exponer mapToFlatJsonV2 (útil para batch desde controller)
+         * Método público para exponer mapToFlatJsonV2 (útil para batch desde
+         * controller)
          */
         public PredictionInputDtoV2 mapCustomerToDto(Customer customer) {
                 return mapToFlatJsonV2(customer);
+        }
+
+        /**
+         * 🔧 Arregla nivel_riesgo nulo en datos históricos
+         *
+         * Busca todas las predicciones que tienen probabilidad_fuga pero nivel_riesgo =
+         * null
+         * y recalcula el nivel_riesgo basándose en la probabilidad
+         *
+         * 🧹 LIMPIEZA DE CACHÉ: Al actualizar datos históricos, se invalidan los datos del mapa
+         *
+         * @return Número de registros actualizados
+         */
+        @Caching(evict = {
+                @CacheEvict(value = "heatmapData", allEntries = true),
+                @CacheEvict(value = "geoCustomers", allEntries = true),
+                @CacheEvict(value = "dashboardStats", allEntries = true)
+        })
+        public int fixHistoricalRiskLevels() {
+                log.info("🔧 Buscando predicciones con nivel_riesgo nulo...");
+
+                // 1. Buscar todas las predicciones con nivel_riesgo nulo
+                List<AiPrediction> nullRiskPredictions = predictionRepository.findAll().stream()
+                                .filter(p -> p.getNivelRiesgo() == null && p.getProbabilidadFuga() != null)
+                                .collect(Collectors.toList());
+
+                int totalToFix = nullRiskPredictions.size();
+                log.info("📊 Encontradas {} predicciones con nivel_riesgo nulo", totalToFix);
+
+                if (totalToFix == 0) {
+                        log.info("✅ No hay predicciones que corregir");
+                        return 0;
+                }
+
+                // 2. Recalcular nivel_riesgo para cada predicción
+                for (AiPrediction prediction : nullRiskPredictions) {
+                        prediction.calculateRiskLevel();
+                }
+
+                // 3. Guardar todas las predicciones actualizadas (batch update)
+                log.info("💾 Guardando {} predicciones actualizadas...", totalToFix);
+                predictionRepository.saveAll(nullRiskPredictions);
+
+                log.info("✅ Se actualizaron {} registros con nivel_riesgo", totalToFix);
+                return totalToFix;
+        }
+
+        /**
+         * 🔄 Recalcula nivel_riesgo para TODAS las predicciones existentes
+         *
+         * Útil después de cambiar los umbrales de clasificación en AiPrediction.java
+         * NO requiere regenerar predicciones desde Python, solo reclasifica las existentes
+         *
+         * 🧹 LIMPIEZA DE CACHÉ: Al actualizar datos, se invalidan los datos del mapa
+         *
+         * @return Número de registros actualizados
+         */
+        @Caching(evict = {
+                @CacheEvict(value = "heatmapData", allEntries = true),
+                @CacheEvict(value = "geoCustomers", allEntries = true),
+                @CacheEvict(value = "dashboardStats", allEntries = true)
+        })
+        public int recalculateAllRiskLevels() {
+                log.info("🔄 Recalculando nivel_riesgo para TODAS las predicciones...");
+
+                // 1. Obtener todas las predicciones
+                List<AiPrediction> allPredictions = predictionRepository.findAll();
+                int total = allPredictions.size();
+
+                log.info("📊 Total de predicciones a recalcular: {}", total);
+
+                if (total == 0) {
+                        log.warn("⚠️  No hay predicciones en la base de datos");
+                        return 0;
+                }
+
+                // 2. Recalcular nivel_riesgo para cada predicción (usa los nuevos umbrales)
+                for (AiPrediction prediction : allPredictions) {
+                        if (prediction.getProbabilidadFuga() != null) {
+                                prediction.calculateRiskLevel();
+                        }
+                }
+
+                // 3. Guardar todas las predicciones actualizadas (batch update)
+                log.info("💾 Guardando {} predicciones actualizadas...", total);
+                long startTime = System.currentTimeMillis();
+                predictionRepository.saveAll(allPredictions);
+                long duration = System.currentTimeMillis() - startTime;
+
+                log.info("✅ Se recalcularon {} registros en {}ms", total, duration);
+                log.info("📊 Nuevos umbrales (modelo calibrado): Bajo (<25%), Medio (25-40%), Alto (>40%)");
+
+                return total;
         }
 }

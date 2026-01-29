@@ -37,20 +37,32 @@ public class AiPrediction {
      * Calcula automáticamente el nivel de riesgo basándose en la probabilidad de
      * fuga
      * Se ejecuta antes de insertar o actualizar en la BD
+     *
+     * ✅ UMBRALES AJUSTADOS V3 (para modelo CALIBRADO):
+     * - El modelo calibrado ajusta las probabilidades a la tasa de churn real (16%)
+     * - Distribución del modelo calibrado:
+     *   → 84% de clientes tienen probabilidad < 30%
+     *   → 16% de clientes tienen probabilidad 30-50%
+     *   → 0% de clientes tienen probabilidad > 50%
+     *
+     * - Umbrales ajustados para modelo calibrado:
+     *   → Bajo: < 25% (~75% de clientes - estables, baja probabilidad)
+     *   → Medio: 25-40% (~20% de clientes - requiere monitoreo)
+     *   → Alto: > 40% (~5% de clientes - crítico, acción inmediata)
      */
     @PrePersist
     @PreUpdate
-    protected void calculateRiskLevel() {
+    public void calculateRiskLevel() {
         fechaAnalisis = LocalDateTime.now();
 
-        // Calcular nivel de riesgo automáticamente
+        // Calcular nivel de riesgo con umbrales para modelo CALIBRADO
         if (probabilidadFuga != null) {
-            if (probabilidadFuga < 0.30) {
-                nivelRiesgo = "Bajo";
-            } else if (probabilidadFuga < 0.70) {
-                nivelRiesgo = "Medio";
+            if (probabilidadFuga < 0.25) {
+                nivelRiesgo = "Bajo";      // < 25%: Cliente estable (~75% de clientes)
+            } else if (probabilidadFuga < 0.40) {
+                nivelRiesgo = "Medio";     // 25-40%: Requiere atención (~20% de clientes)
             } else {
-                nivelRiesgo = "Alto";
+                nivelRiesgo = "Alto";      // > 40%: Crítico (~5% de clientes)
             }
         }
     }

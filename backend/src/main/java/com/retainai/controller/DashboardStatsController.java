@@ -3,12 +3,14 @@ package com.retainai.controller;
 import com.retainai.dto.ContractAnalysisDTO;
 import com.retainai.dto.CustomerSegmentDTO;
 import com.retainai.dto.DashboardStatsDto;
+import com.retainai.dto.CohortAnalysisDTO;
 import com.retainai.dto.HeatmapPointDto;
 import com.retainai.dto.SupportAnalysisDTO;
 import com.retainai.service.BiDashboardService;
 import com.retainai.service.DashboardService;
 import com.retainai.service.InsightsService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
+@Slf4j
 public class DashboardStatsController {
 
     private final DashboardService stats;
@@ -41,6 +44,8 @@ public class DashboardStatsController {
     @GetMapping("/heatmap")
     public ResponseEntity<List<HeatmapPointDto>> getHeatmapData(
             @RequestParam(required = false) String city) {
+        
+        log.info("📥 Solicitud recibida: GET /api/dashboard/heatmap (city={})", city);
 
         // Si se especifica ciudad, filtrar por esa ciudad
         if (city != null && !city.isEmpty()) {
@@ -48,7 +53,9 @@ public class DashboardStatsController {
         }
 
         // Si no, retornar todos los clientes
-        return ResponseEntity.ok(stats.getHeatmapData());
+        List<HeatmapPointDto> data = stats.getHeatmapData();
+        log.info("📤 Enviando {} puntos al cliente", data.size());
+        return ResponseEntity.ok(data);
     }
 
     /**
@@ -157,5 +164,18 @@ public class DashboardStatsController {
     public ResponseEntity<Map<String, List<CustomerSegmentDTO>>> getCustomerSegmentation() {
         List<CustomerSegmentDTO> segments = insightsService.getCustomerSegmentation();
         return ResponseEntity.ok(Map.of("segments", segments));
+    }
+
+
+
+    /**
+     * Obtiene análisis de cohortes por antigüedad
+     * GET /api/dashboard/bi/cohorts
+     * Consulta MySQL directamente
+     */
+    @GetMapping("/bi/cohorts")
+    public ResponseEntity<Map<String, List<CohortAnalysisDTO>>> getCohortAnalysis() {
+        List<CohortAnalysisDTO> cohorts = insightsService.getCohortAnalysis();
+        return ResponseEntity.ok(Map.of("cohorts", cohorts));
     }
 }

@@ -6,7 +6,8 @@ import com.retainai.model.Customer;
 import com.retainai.repository.CustomerRepository;
 import com.retainai.repository.PredictionRepository;
 import com.retainai.util.NyRealData;
-
+import org.springframework.cache.annotation.Cacheable;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class GeoLocationService {
 
@@ -237,45 +239,35 @@ public class GeoLocationService {
     }
 
     // --- Mapeo para el Frontend (ULTRA-OPTIMIZADO) ---
+    @Cacheable(value = "geoCustomers", key = "#limit", unless = "#result == null")
     public List<GeoCustomerDto> getCustomersForMap(int limit) {
-        // 🚀 Query directa a DTO - NO carga relaciones innecesarias
-        org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest.of(0,
-                limit);
-
-        // Esta query ya devuelve GeoCustomerDto directamente (sin Customer completo)
-        List<GeoCustomerDto> lightDtos = customerRepository.findGeoCustomersLight(pageRequest);
-
-        // Ahora calculamos el risk real basado en predicciones (batch query)
-        List<String> customerIds = lightDtos.stream()
-                .map(GeoCustomerDto::id)
+        log.info("📍 Obteniendo {} clientes para el mapa (Nativo)...", limit);
+        long startTime = System.currentTimeMillis();
+        
+        List<Object[]> results = customerRepository.findHeatmapDataNative();
+        
+        List<GeoCustomerDto> dtos = results.stream()
+                .limit(limit)
+                .map(row -> new GeoCustomerDto(
+                        (String) row[0], // id
+                        (Double) row[2], // lat
+                        (Double) row[3], // lng
+                        normalizeRiskLevelLocal((String) row[5]), // risk
+                        row[8] != null ? ((Number) row[8]).doubleValue() : 0.0 // monthlyFee
+                ))
                 .collect(Collectors.toList());
 
-        List<AiPrediction> predictions = predictionRepository.findLatestByCustomerIds(customerIds);
+        log.info("✅ Generados {} DTOs para el mapa en {}ms", dtos.size(), (System.currentTimeMillis() - startTime));
+        return dtos;
+    }
 
-        // Crear mapa de customerID -> risk calculado
-        var riskMap = predictions.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getCustomer().getId(),
-                        p -> {
-                            double prob = p.getProbabilidadFuga();
-                            if (prob > 0.70)
-                                return "High";
-                            if (prob > 0.35)
-                                return "Medium";
-                            return "Low";
-                        },
-                        (r1, r2) -> r1 // Si hay duplicados, tomar el primero
-                ));
-
-        // Reemplazar "Low" default con el risk real
-        return lightDtos.stream()
-                .map(dto -> new GeoCustomerDto(
-                        dto.id(),
-                        dto.lat(),
-                        dto.lng(),
-                        riskMap.getOrDefault(dto.id(), "Low"), // Risk calculado o Low por default
-                        dto.monthlyFee()))
-                .collect(Collectors.toList());
+    private String normalizeRiskLevelLocal(String riskLevel) {
+        if (riskLevel == null) return "Low";
+        return switch (riskLevel.toLowerCase()) {
+            case "alto", "high" -> "High";
+            case "medio", "medium" -> "Medium";
+            default -> "Low";
+        };
     }
 
     private GeoCustomerDto mapToGeoDTO(Customer c) {

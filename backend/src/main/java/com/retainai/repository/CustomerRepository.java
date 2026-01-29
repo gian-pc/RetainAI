@@ -45,7 +45,7 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Page<Customer> findCustomersAtRisk(Pageable pageable);
 
     // 🗺️ Query optimizada para mapa - Proyección DTO directa (sin relaciones)
-    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low', 0.0D) " +
+    @Query("SELECT new com.retainai.dto.GeoCustomerDto(c.id, c.latitud, c.longitud, 'Low') " +
             "FROM Customer c WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<com.retainai.dto.GeoCustomerDto> findGeoCustomersLight(Pageable pageable);
 
@@ -54,6 +54,36 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
             "LEFT JOIN FETCH c.subscription " +
             "WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL")
     List<Customer> findCustomersWithCoordinates();
+
+    @Query(value = """
+            SELECT
+                c.id as customerId,
+                c.nombre as nombre,
+                c.latitud as latitude,
+                c.longitud as longitude,
+                COALESCE(p.probabilidad_fuga, 0.5) as churnProbability,
+                COALESCE(p.nivel_riesgo, 'Medio') as riskLevel,
+                c.segmento as segmento,
+                s.tipo_contrato as tipoContrato,
+                s.cuota_mensual as cargoMensual,
+                s.meses_permanencia as antiguedad,
+                c.borough as borough,
+                c.ciudad as ciudad,
+                c.ingreso_mediano as ingresoMediano,
+                c.densidad_poblacional as densidadPoblacional
+            FROM customers c
+            LEFT JOIN (
+                SELECT p1.* FROM ai_predictions p1
+                INNER JOIN (
+                    SELECT customer_id, MAX(fecha_analisis) as max_fecha
+                    FROM ai_predictions
+                    GROUP BY customer_id
+                ) p2 ON p1.customer_id = p2.customer_id AND p1.fecha_analisis = p2.max_fecha
+            ) p ON c.id = p.customer_id
+            LEFT JOIN subscriptions s ON c.id = s.customer_id
+            WHERE c.latitud IS NOT NULL AND c.longitud IS NOT NULL
+            """, nativeQuery = true)
+    List<Object[]> findHeatmapDataNative();
 
     // 🎯 Query para obtener clientes ACTIVOS candidatos (muestra aleatoria)
     // Filtra SOLO clientes activos (abandonoHistorico = false o null)

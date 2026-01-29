@@ -133,26 +133,26 @@ export default function CustomersPage() {
     const hasCustomers = customers.length > 0;
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <header className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">👥 Customers</h1>
-                    <p className="text-base text-slate-600">
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 transition-colors">👥 Customers</h1>
+                    <p className="text-base text-slate-600 dark:text-slate-400 transition-colors">
                         Gestión y análisis de clientes con predicciones de churn
                     </p>
                 </header>
 
                 {!loading && !hasCustomers ? (
                     // Estado vacío mejorado
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-12 text-center transition-colors">
                         <div className="text-6xl mb-4">✅</div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">¡Todo bajo control!</h3>
-                        <p className="text-slate-600 mb-6">
+                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 transition-colors">¡Todo bajo control!</h3>
+                        <p className="text-slate-600 dark:text-slate-400 mb-6 transition-colors">
                             No hay clientes de alto riesgo en este momento. Todos los clientes están estables.
                         </p>
                         <button
                             onClick={fetchCustomers}
-                            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
                         >
                             Actualizar
                         </button>
@@ -160,56 +160,56 @@ export default function CustomersPage() {
                 ) : (
                     <>
                 <div className="grid grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-colors">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-slate-600">Total Clientes</p>
-                            <UsersIcon className="h-5 w-5 text-indigo-600" />
+                            <p className="text-sm text-slate-600 dark:text-slate-400 transition-colors">Total Clientes</p>
+                            <UsersIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400 transition-colors" />
                         </div>
-                        <p className="text-3xl font-bold text-slate-900">{totalCustomers}</p>
+                        <p className="text-3xl font-bold text-slate-900 dark:text-white transition-colors">{totalCustomers}</p>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-colors">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-slate-600">Alto Riesgo</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 transition-colors">Alto Riesgo</p>
                             <div className="h-3 w-3 rounded-full bg-red-500"></div>
                         </div>
-                        <p className="text-3xl font-bold text-red-600">{highRiskCount}</p>
+                        <p className="text-3xl font-bold text-red-600 dark:text-red-400 transition-colors">{highRiskCount}</p>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-colors">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-slate-600">Riesgo Medio</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 transition-colors">Riesgo Medio</p>
                             <div className="h-3 w-3 rounded-full bg-amber-500"></div>
                         </div>
-                        <p className="text-3xl font-bold text-amber-600">{mediumRiskCount}</p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400 transition-colors">{mediumRiskCount}</p>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-colors">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-slate-600">Prob. Promedio</p>
-                            <Filter className="h-5 w-5 text-slate-400" />
+                            <p className="text-sm text-slate-600 dark:text-slate-400 transition-colors">Prob. Promedio</p>
+                            <Filter className="h-5 w-5 text-slate-400 dark:text-slate-500 transition-colors" />
                         </div>
-                        <p className="text-3xl font-bold text-slate-900">{avgProbability}%</p>
+                        <p className="text-3xl font-bold text-slate-900 dark:text-white transition-colors">{avgProbability}%</p>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6 transition-colors">
                     <div className="flex gap-4 items-center">
                         <div className="flex-1 relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500 transition-colors" />
                             <input
                                 type="text"
                                 placeholder="Buscar por ID o ciudad..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
                             />
                         </div>
 
                         <select
                             value={riskFilter}
                             onChange={(e) => setRiskFilter(e.target.value)}
-                            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors"
                         >
                             <option value="ALL">Todos los riesgos</option>
                             <option value="High">Alto riesgo</option>
@@ -220,7 +220,7 @@ export default function CustomersPage() {
                         <select
                             value={segmentFilter}
                             onChange={(e) => setSegmentFilter(e.target.value)}
-                            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors"
                         >
                             <option value="ALL">Todos los segmentos</option>
                             <option value="Residencial">Residencial</option>

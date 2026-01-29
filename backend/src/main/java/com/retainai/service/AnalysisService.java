@@ -34,6 +34,7 @@ public class AnalysisService {
         private final CustomerRepository customerRepository;
         private final PredictionRepository predictionRepository;
         private final RestTemplate restTemplate;
+        private final DatabaseCleanupService databaseCleanupService;
 
         @Value("${app.python-service.url}")
         private String pythonUrl;
@@ -48,6 +49,9 @@ public class AnalysisService {
                 log.info("🚀 Iniciando análisis completo de clientes (BATCH OPTIMIZADO)...");
 
                 LocalDateTime startTime = LocalDateTime.now();
+
+                // 0. Limpiar historial previo para evitar duplicados por cliente
+                databaseCleanupService.deletePredictionHistory();
 
                 // 1. Obtener TODOS los clientes con sus datos relacionados
                 List<Customer> customers = customerRepository.findAll();

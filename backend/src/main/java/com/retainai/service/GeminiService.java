@@ -76,22 +76,21 @@ public class GeminiService {
             }
 
             fullPrompt.append("INSTRUCCIONES DE RESPUESTA:\n");
-            fullPrompt.append(
-                    "1. SI el usuario saluda (ej: 'hola', 'buenos días'): Responde de forma breve, profesional y amable. NO uses el formato de análisis.\n");
-            fullPrompt.append("2. SI el usuario hace una pregunta general: Responde directamente.\n");
-            fullPrompt.append(
-                    "3. SI Y SOLO SI el usuario pide análisis, datos, riesgo o información de clientes, DEBES usar el siguiente formato:\n\n");
-            fullPrompt.append("📊 **Summary**\n");
-            fullPrompt.append("[1-2 oraciones sobre la situación general]\n\n");
-            fullPrompt.append("🔍 **Key Insights**\n");
-            fullPrompt.append("🔴 High Risk Customers: [número]\n");
-            fullPrompt.append("💰 Revenue at Risk: $[cantidad]\n");
-            fullPrompt.append("📉 Main Driver: [razón principal]\n");
-            fullPrompt.append("📍 Hotspot: [borough, ciudad] (SIEMPRE menciona el borough si está disponible)\n\n");
-            fullPrompt.append("🤔 **Why this is happening**\n");
-            fullPrompt.append("- [Razón 1]\n");
-            fullPrompt.append("- [Razón 2]\n");
-            fullPrompt.append("- [Razón 3]\n\n");
+            fullPrompt.append("1. SI el usuario saluda: Responde breve y amable. NO uses formato de análisis.\n");
+            fullPrompt.append("2. SI el usuario hace pregunta general: Responde directo en 1-2 oraciones.\n");
+            fullPrompt.append("3. SI pide análisis/datos/riesgo de clientes, usa este formato CORTO:\n\n");
+            fullPrompt.append("REGLAS CRÍTICAS:\n");
+            fullPrompt.append("- TODO en español, sin palabras en inglés\n");
+            fullPrompt.append("- Máximo 5-6 líneas TOTAL\n");
+            fullPrompt.append("- Solo emojis simples, sin cuadros ni símbolos raros\n");
+            fullPrompt.append("- SIEMPRE menciona ID del cliente y borough cuando sea relevante\n\n");
+            fullPrompt.append("FORMATO:\n");
+            fullPrompt.append("📊 Resumen\n");
+            fullPrompt.append("El cliente de mayor riesgo es [NOMBRE] (ID: [ID]). Se encuentra en [BOROUGH], con [X]% de probabilidad de fuga.\n\n");
+            fullPrompt.append("🔍 Datos Clave\n");
+            fullPrompt.append("Clientes en riesgo: [número] | Ingresos en riesgo: $[cantidad] | Causa: [razón corta] | Zona crítica: [BOROUGH]\n\n");
+            fullPrompt.append("🤔 Por qué ocurre\n");
+            fullPrompt.append("El cliente [NOMBRE] está en riesgo alto ([X]%) debido a que [razón específica breve en 1 línea].\n\n");
             fullPrompt.append("Usuario: ").append(userMessage);
 
             Map<String, Object> content = new HashMap<>();
@@ -155,7 +154,7 @@ public class GeminiService {
                             : customer.getCiudad();
 
                     topRiskContext.append(String.format(
-                            "- Cliente #%d: %s (ID: %s) | Probabilidad de fuga: %.1f%% | Razón: %s | Valor: $%.0f/mes | Ubicación: %s\n",
+                            "- Cliente #%d: %s (ID: %s) | Probabilidad de fuga: %.2f%% | Razón: %s | Valor: $%.2f/mes | Ubicación: %s\n",
                             (i + 1),
                             customer.getNombre(),
                             customer.getId(),
@@ -285,7 +284,7 @@ public class GeminiService {
                             CLIENTE DE MAYOR RIESGO HOY:
                             - Nombre: %s
                             - ID: %s
-                            - Probabilidad de churn: %.1f%%
+                            - Probabilidad de churn: %.2f%%
                             - Nivel de riesgo: %s
                             - Razón principal: %s
                             - Cargo mensual: $%.2f/mes

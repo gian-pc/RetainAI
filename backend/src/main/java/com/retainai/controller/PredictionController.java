@@ -148,7 +148,7 @@ public class PredictionController {
             BatchPredictionResponseDTO response = csvService.parseAndPredictDirect(file);
 
             log.info("✅ Predicción directa completada: {} éxitos, {} errores",
-                response.getSuccessCount(), response.getErrorCount());
+                    response.getSuccessCount(), response.getErrorCount());
 
             return ResponseEntity.ok(response);
 
@@ -186,6 +186,78 @@ public class PredictionController {
             log.error("❌ [BATCH-ALL] Error en predicción masiva", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Error en predicción masiva: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 🔧 ADMIN: Arreglar nivel_riesgo nulo en datos históricos
+     * POST: /api/customers/admin/fix-risk-levels
+     *
+     * Recalcula nivel_riesgo para todas las predicciones que tienen
+     * probabilidad_fuga pero nivel_riesgo = null
+     *
+     * Útil para arreglar datos históricos después de correcciones de código
+     */
+    @PostMapping("/admin/fix-risk-levels")
+    public ResponseEntity<java.util.Map<String, Object>> fixHistoricalRiskLevels() {
+        log.info("🔧 [ADMIN] Iniciando corrección de nivel_riesgo en datos históricos...");
+
+        try {
+            int updatedCount = pythonIntegrationService.fixHistoricalRiskLevels();
+
+            java.util.Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", true);
+            response.put("updatedRecords", updatedCount);
+            response.put("message", "Se actualizaron " + updatedCount + " registros con nivel_riesgo nulo");
+
+            log.info("✅ [ADMIN] Corrección completada: {} registros actualizados", updatedCount);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ [ADMIN] Error corrigiendo nivel_riesgo", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error corrigiendo datos históricos: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 🔄 ADMIN: Recalcular nivel_riesgo para TODAS las predicciones
+     * POST: /api/customers/admin/recalculate-risk-levels
+     *
+     * Recalcula nivel_riesgo para TODAS las predicciones existentes
+     * usando los umbrales actuales de AiPrediction.java
+     *
+     * NO requiere regenerar predicciones desde Python, solo reclasifica
+     *
+     * Útil después de cambiar los umbrales de clasificación
+     * (Bajo: <50%, Medio: 50-70%, Alto: >70%)
+     */
+    @PostMapping("/admin/recalculate-risk-levels")
+    public ResponseEntity<java.util.Map<String, Object>> recalculateAllRiskLevels() {
+        log.info("🔄 [ADMIN] Iniciando recálculo de nivel_riesgo para TODAS las predicciones...");
+
+        try {
+            int updatedCount = pythonIntegrationService.recalculateAllRiskLevels();
+
+            java.util.Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", true);
+            response.put("updatedRecords", updatedCount);
+            response.put("message", "Se recalcularon " + updatedCount + " registros con los nuevos umbrales");
+            response.put("thresholds", java.util.Map.of(
+                    "Bajo", "< 25%",
+                    "Medio", "25-40%",
+                    "Alto", "> 40%"
+            ));
+
+            log.info("✅ [ADMIN] Recálculo completado: {} registros actualizados", updatedCount);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ [ADMIN] Error recalculando nivel_riesgo", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error recalculando niveles de riesgo: " + e.getMessage());
         }
     }
 }

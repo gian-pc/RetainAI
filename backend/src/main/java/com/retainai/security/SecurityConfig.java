@@ -35,28 +35,8 @@ public class SecurityConfig {
                 }))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/api/customers/upload").permitAll()
-                        .requestMatchers("/api/customers/export").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/api/customers/all").permitAll() // Database cleanup
-                        .requestMatchers(HttpMethod.GET, "/api/customers/**").permitAll()
-                        .requestMatchers("/api/customers/*/predict").permitAll()
-                        .requestMatchers("/api/customers/*/predictions/history").permitAll()
-                        .requestMatchers("/api/customers/predict/batch").permitAll() // Batch prediction (CSV)
-                        .requestMatchers("/api/customers/predict/batch-all").permitAll() // Batch prediction (ALL)
-                        .requestMatchers("/api/customers/predict/direct").permitAll() // Direct prediction
-                        .requestMatchers("/api/dashboard/**").permitAll()
-                        .requestMatchers("/api/insights/**").permitAll() // Insights prioritarios
-                        .requestMatchers("/api/geo/**").permitAll()
-                        .requestMatchers("/api/ai/**").permitAll() // AI Chat
-                        .requestMatchers("/api/chatbot/**").permitAll() // Chatbot con Text-to-SQL
-                        .requestMatchers("/api/tts/**").permitAll() // Text-to-Speech (ElevenLabs)
-                        .requestMatchers("/api/predictions/**").permitAll() // Batch analysis endpoint
-                        .requestMatchers("/error").permitAll()
-                        .anyRequest().authenticated())
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                        .anyRequest().permitAll())
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();
     }

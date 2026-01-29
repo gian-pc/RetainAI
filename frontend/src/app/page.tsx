@@ -5,6 +5,9 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import BatchPredictionModal from '@/components/BatchPredictionModal';
 import UploadDatasetModal from '@/components/UploadDatasetModal';
+import { useLayoutContext } from '@/context/LayoutContext';
+import KPICards from '@/components/KPICards';
+import AIAssistant from '@/components/AIAssistant';
 
 // Lazy loading del mapa (ChurnMap ya existe)
 const ChurnMap = dynamic(() => import('@/components/ChurnMap'), {
@@ -31,8 +34,8 @@ interface DashboardStats {
 export default function CommandCenter() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showBatchModal, setShowBatchModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const { isChatbotOpen, isPredictionModalOpen, setPredictionModalOpen } = useLayoutContext();
 
   useEffect(() => {
     fetchDashboardData();
@@ -54,25 +57,14 @@ export default function CommandCenter() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center transition-colors">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando Centro de Comando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-slate-400 transition-colors">Cargando Centro de Comando...</p>
         </div>
       </div>
     );
@@ -80,12 +72,12 @@ export default function CommandCenter() {
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <p className="text-red-600">Error cargando datos del dashboard</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center transition-colors">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 transition-colors">
+          <p className="text-red-600 dark:text-red-400 transition-colors">Error cargando datos del dashboard</p>
           <button
             onClick={fetchDashboardData}
-            className="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            className="mt-4 bg-red-600 dark:bg-red-700 text-white px-4 py-2 rounded hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
           >
             Reintentar
           </button>
@@ -98,11 +90,11 @@ export default function CommandCenter() {
   if (stats.totalCustomers === 0) {
     return (
       <>
-        <div className="h-[calc(100vh-4rem)] bg-gray-50 overflow-hidden flex items-center justify-center">
+        <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-slate-900 overflow-hidden flex items-center justify-center transition-colors">
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <div className="bg-white rounded-lg shadow-xl p-8 border-2 border-dashed border-gray-300">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-8 border-2 border-dashed border-gray-300 dark:border-slate-700 transition-colors">
               <svg
-                className="mx-auto h-24 w-24 text-gray-400 mb-6"
+                className="mx-auto h-24 w-24 text-gray-400 dark:text-slate-500 mb-6 transition-colors"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -114,17 +106,16 @@ export default function CommandCenter() {
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4 transition-colors">
                 Bienvenido a RetainAI
               </h2>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 dark:text-slate-400 mb-6 transition-colors">
                 Para comenzar, carga tu dataset de clientes en formato CSV. <br />
                 El sistema poblará la base de datos y generará estadísticas en tiempo real.
               </p>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-blue-900 mb-2">Qué incluye el CSV:</h3>
-                <ul className="text-sm text-blue-800 space-y-1 text-left mx-auto max-w-md">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6 transition-colors">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2 transition-colors">Qué incluye el CSV:</h3>
+                <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 text-left mx-auto max-w-md transition-colors">
                   <li>✓ Información demográfica de clientes</li>
                   <li>✓ Datos de suscripción y facturación</li>
                   <li>✓ Métricas de uso y actividad</li>
@@ -165,102 +156,38 @@ export default function CommandCenter() {
   const avgNps = stats.avgNpsScore || 0;
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gray-50 overflow-hidden">
+    <div
+      className="h-[calc(100vh-4rem)] overflow-hidden relative transition-colors duration-300"
+      style={{ backgroundColor: 'var(--page-bg)' }}
+    >
       {/* Main Content - Flex Column to fill viewport */}
-      <div className="flex flex-col h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+      <div className={`flex flex-col h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-4 space-y-6 transition-all duration-300 ease-in-out`}>
 
-        {/* 4 KPI Cards - Horizontal, Compact (Fixed Height) */}
-        <div className="flex-none grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* KPI 1: Revenue at Risk */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Ingresos en Riesgo</p>
-                <p className="text-2xl font-bold text-red-600 mt-1">
-                  {formatCurrency(revenueAtRisk)}
-                </p>
-              </div>
-              <div className="bg-red-100 p-3 rounded-lg">
-                <span className="text-2xl">💰</span>
-              </div>
-            </div>
-          </div>
 
-          {/* KPI 2: Churn Rate */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Tasa de Cancelación</p>
-                <p className="text-2xl font-bold text-orange-600 mt-1">
-                  {formatPercentage(churnRate)}
-                </p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <span className="text-2xl">📉</span>
-              </div>
-            </div>
-          </div>
-
-          {/* KPI 3: Customers at Risk */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Clientes en Riesgo</p>
-                <p className="text-2xl font-bold text-yellow-600 mt-1">
-                  {customersAtRisk.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-lg">
-                <span className="text-2xl">⚠️</span>
-              </div>
-            </div>
-          </div>
-
-          {/* KPI 4: Avg NPS Score */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-medium">Satisfacción Promedio</p>
-                <p className={`text-2xl font-bold mt-1 ${avgNps >= 50 ? 'text-green-600' : 'text-gray-600'}`}>
-                  {avgNps.toFixed(0)}
-                </p>
-              </div>
-              <div className={`${avgNps >= 50 ? 'bg-green-100' : 'bg-gray-100'} p-3 rounded-lg`}>
-                <span className="text-2xl">⭐</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* KPI Cards */}
+        <KPICards
+          revenueAtRisk={revenueAtRisk}
+          churnRate={churnRate}
+          customersAtRisk={customersAtRisk}
+          avgNps={avgNps}
+        />
 
         {/* Geographic Churn Heatmap - FLEXIBLE (Fills remaining space) */}
-        <div className="flex-1 min-h-0 relative bg-white rounded-lg shadow-sm border border-gray-200">
+        <div
+          className="flex-1 min-h-0 relative rounded-lg shadow-sm border overflow-hidden"
+          style={{
+            backgroundColor: 'var(--surface-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
           {/* Mapa Real con Mapbox */}
           <ChurnMap />
+          <AIAssistant />
         </div>
 
       </div>
 
-      {/* Botón flotante para Batch Prediction - Posicionado ARRIBA del chatbot */}
-      <button
-        onClick={() => setShowBatchModal(true)}
-        className="fixed bottom-28 right-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center space-x-2 z-50"
-        title="Predecir todos los clientes"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-        </svg>
-        <span className="font-semibold">Predecir Todos</span>
-      </button>
 
-      {/* Batch Prediction Modal */}
-      <BatchPredictionModal
-        isOpen={showBatchModal}
-        onClose={() => setShowBatchModal(false)}
-        onComplete={() => {
-          // Refrescar datos del dashboard después de completar predicciones
-          fetchDashboardData();
-        }}
-      />
 
       {/* Upload Dataset Modal */}
       <UploadDatasetModal

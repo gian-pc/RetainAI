@@ -89,36 +89,50 @@ public class DashboardService {
     /**
      * Obtiene puntos geográficos para el mapa de calor de churn
      * Solo incluye clientes con coordenadas válidas
-     * 🚀 OPTIMIZADO: Usa Map para lookup eficiente de predicciones (evita N+1)
+     * 🚀 ULTRA-OPTIMIZADO: Usa consulta nativa para obtener todo de un golpe
+     * ⚡ CACHÉ: Los datos del mapa se cachean para respuesta instantánea
      */
+    @Cacheable(value = "heatmapData", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
     public List<HeatmapPointDto> getHeatmapData() {
         try {
-            log.info("📍 Generando datos para heatmap geográfico...");
+            log.info("📍 Generando datos para heatmap geográfico (Nativo)...");
+            long startTime = System.currentTimeMillis();
 
-            // 1. Obtener todos los clientes con coordenadas
-            List<Customer> customersWithCoords = customerRepository.findCustomersWithCoordinates();
-            log.info("✅ Encontrados {} clientes con coordenadas", customersWithCoords.size());
+            List<Object[]> results = customerRepository.findHeatmapDataNative();
+            log.info("📊 Query nativa devolvió {} filas en {}ms", results.size(), (System.currentTimeMillis() - startTime));
+            
+            List<HeatmapPointDto> points = new java.util.ArrayList<>();
+            
+            for (int i = 0; i < results.size(); i++) {
+                Object[] row = results.get(i);
+                try {
+                    points.add(HeatmapPointDto.builder()
+                            .customerId((String) row[0])
+                            .nombre((String) row[1])
+                            .latitude(row[2] != null ? ((Number) row[2]).floatValue() : 0.0f)
+                            .longitude(row[3] != null ? ((Number) row[3]).floatValue() : 0.0f)
+                            .churnProbability(row[4] != null ? ((Number) row[4]).floatValue() : 0.5f)
+                            .riskLevel(normalizeRiskLevel((String) row[5]))
+                            .segmento((String) row[6])
+                            .tipoContrato((String) row[7])
+                            .cargoMensual(row[8] != null ? ((Number) row[8]).floatValue() : 0.0f)
+                            .antiguedad(row[9] != null ? ((Number) row[9]).intValue() : 0)
+                            .borough((String) row[10])
+                            .ciudad((String) row[11])
+                            .ingresoMediano(row[12] != null ? ((Number) row[12]).floatValue() : null)
+                            .densidadPoblacional(row[13] != null ? ((Number) row[13]).floatValue() : null)
+                            .build());
+                } catch (Exception rowEx) {
+                    log.error("⚠️ Error procesando fila {} (ID: {}): {}", i, row != null ? row[0] : "null", rowEx.getMessage());
+                }
+            }
 
-            // 2. Obtener SOLO la última predicción de cada cliente (query optimizada)
-            List<AiPrediction> latestPredictions = predictionRepository.findLatestPredictionForEachCustomer();
-            log.info("✅ Encontradas {} predicciones", latestPredictions.size());
-
-            // 3. Crear Map para lookup O(1) - customerId -> AiPrediction
-            Map<String, AiPrediction> predictionMap = latestPredictions.stream()
-                    .collect(Collectors.toMap(
-                            p -> p.getCustomer().getId(),
-                            p -> p,
-                            (p1, p2) -> p1.getFechaAnalisis().isAfter(p2.getFechaAnalisis()) ? p1 : p2));
-
-            // 4. Mapear a HeatmapPointDto usando el Map
-            return customersWithCoords.stream()
-                    .map(customer -> mapToHeatmapPoint(customer,
-                            predictionMap.get(customer.getId())))
-                    .collect(Collectors.toList());
+            log.info("✅ Finalizado mapeo de {} puntos en {}ms (Total)", points.size(), (System.currentTimeMillis() - startTime));
+            return points;
 
         } catch (Exception e) {
-            log.error("❌ Error generando heatmap data", e);
+            log.error("❌ Error FATAL generando heatmap data nativo", e);
             return List.of();
         }
     }
@@ -126,33 +140,24 @@ public class DashboardService {
     /**
      * Filtrar clientes por ciudad (para drill-down geográfico desde el chatbot)
      * Solo retorna clientes de la ciudad especificada
+     * 🚀 ULTRA-OPTIMIZADO: Usa consulta nativa filtrada
      */
     public List<HeatmapPointDto> getHeatmapDataByCity(String city) {
         try {
-            log.info("📍 Filtrando heatmap por ciudad: {}", city);
+            log.info("📍 Filtrando heatmap por ciudad (Nativo): {}", city);
+            long startTime = System.currentTimeMillis();
 
-            // Buscar clientes de esa ciudad que tengan coordenadas
-            List<Customer> customers = customerRepository.findByCiudad(city);
-
-            // Filtrar solo los que tienen coordenadas
-            List<Customer> customersWithCoords = customers.stream()
-                    .filter(c -> c.getLatitud() != null && c.getLongitud() != null)
-                    .toList();
-
-            log.info("✅ Encontrados {} clientes en {} con coordenadas", customersWithCoords.size(), city);
-
-            // Obtener predicciones y crear Map
-            List<AiPrediction> latestPredictions = predictionRepository.findLatestPredictionForEachCustomer();
-            Map<String, AiPrediction> predictionMap = latestPredictions.stream()
-                    .collect(Collectors.toMap(
-                            p -> p.getCustomer().getId(),
-                            p -> p,
-                            (p1, p2) -> p1.getFechaAnalisis().isAfter(p2.getFechaAnalisis()) ? p1 : p2));
-
-            // Mapear a HeatmapPointDto
-            return customersWithCoords.stream()
-                    .map(customer -> mapToHeatmapPoint(customer, predictionMap.get(customer.getId())))
+            // Podríamos crear otra query nativa filtrada por ciudad, pero para simplificar
+            // podemos filtrar el resultado de getHeatmapData() si no son demasiados datos,
+            // o mejor aún, crear la query nativa filtrada en el repositorio.
+            // Por velocidad de implementación ahora, filtraré el stream.
+            
+            List<HeatmapPointDto> points = getHeatmapData().stream()
+                    .filter(p -> city.equalsIgnoreCase(p.getCiudad()))
                     .collect(Collectors.toList());
+
+            log.info("✅ Encontrados {} puntos en {} en {}ms", points.size(), city, (System.currentTimeMillis() - startTime));
+            return points;
 
         } catch (Exception e) {
             log.error("❌ Error filtrando heatmap por ciudad: {}", city, e);
@@ -179,14 +184,14 @@ public class DashboardService {
         return HeatmapPointDto.builder()
                 .customerId(customer.getId())
                 .nombre(customer.getNombre()) // ✅ Nombre Real del Negocio desde la BD
-                .latitude(customer.getLatitud()) // Coordenada exacta (sin jitter)
-                .longitude(customer.getLongitud()) // ya que son únicas por negocio
-                .churnProbability(churnProbability)
+                .latitude(customer.getLatitud() != null ? customer.getLatitud().floatValue() : 0.0f) // Coordenada exacta (sin jitter)
+                .longitude(customer.getLongitud() != null ? customer.getLongitud().floatValue() : 0.0f) // ya que son únicas por negocio
+                .churnProbability(churnProbability != null ? churnProbability.floatValue() : 0.0f)
                 .riskLevel(riskLevel)
                 // Metadata
                 .segmento(customer.getSegmento())
                 .tipoContrato(sub != null ? sub.getTipoContrato() : "N/A")
-                .cargoMensual(sub != null ? sub.getCuotaMensual() : 0.0)
+                .cargoMensual(sub != null && sub.getCuotaMensual() != null ? sub.getCuotaMensual().floatValue() : 0.0f)
                 .antiguedad(sub != null ? sub.getMesesPermanencia() : 0)
                 .ciudad(customer.getCiudad())
                 .borough(customer.getBorough()) // ✅ Borough real de la BD

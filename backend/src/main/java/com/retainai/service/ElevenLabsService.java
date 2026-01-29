@@ -22,10 +22,10 @@ public class ElevenLabsService {
     @Value("${elevenlabs.api.key:}")
     private String apiKey;
 
-    @Value("${elevenlabs.api.url}")
+    @Value("${elevenlabs.api.url:https://api.elevenlabs.io/v1/text-to-speech}")
     private String apiUrl;
 
-    @Value("${elevenlabs.voice.id}")
+    @Value("${elevenlabs.voice.id:21m00Tcm4TlvDq8ikWAM}")
     private String voiceId;
 
     private final RestTemplate restTemplate;

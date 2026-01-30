@@ -1,0 +1,99 @@
+{
+  "fecha_analisis": "2026-01-19 23:11:14",
+  "clasificacion_campos": {
+    "core_prediction": {
+      "description": "Features que el modelo ML usa para predecir churn",
+      "usage": "Predicción en tiempo real",
+      "storage": "Tablas principales (customers, subscriptions, customer_metrics)",
+      "fields": [
+        "antiguedad",
+        "caracteristicas_usadas",
+        "cargo_mensual",
+        "codigo_postal",
+        "conexiones_mensuales",
+        "dias_activos_semanales",
+        "dias_ultima_conexion",
+        "edad",
+        "errores_pago",
+        "ingresos_totales",
+        "latitud",
+        "longitud",
+        "promedio_conexion",
+        "puntuacion_csat",
+        "puntuacion_nps",
+        "score_riesgo",
+        "tasa_apertura_email",
+        "tasa_crecimiento_uso",
+        "tickets_soporte",
+        "tiempo_resolucion",
+        "tiempo_sesion_promedio",
+        "ultimo_contacto_soporte"
+      ]
+    },
+    "business_context": {
+      "description": "Datos que explican el CONTEXTO del cliente (para chatbot)",
+      "usage": "El chatbot necesita saber el historial y contexto del cliente",
+      "storage": "Nueva tabla: customer_history o customer_context"
+    },
+    "business_context_fields": [
+      "cambio_plan_reciente",
+      "downgrade_reciente",
+      "fecha_ultimo_pago",
+      "intentos_cobro_fallidos",
+      "dias_mora",
+      "ofertas_recibidas",
+      "competidores_area",
+      "precio_vs_mercado",
+      "features_nuevas_usadas",
+      "visitas_app_mensual"
+    ]
+  },
+  "casos_uso_chatbot": [
+    {
+      "scenario": "Cliente con riesgo HIGH detectado por el modelo",
+      "chatbot_action": "Analizar contexto y sugerir estrategia personalizada",
+      "data_needed": [
+        "core_prediction (modelo predice HIGH)",
+        "cambio_plan_reciente (¿bajó de plan?)",
+        "intentos_cobro_fallidos (¿problemas de pago?)",
+        "ofertas_recibidas (¿ya le ofrecimos algo?)",
+        "competidores_area (¿presión competitiva?)",
+        "visitas_app_mensual (¿está usando el servicio?)"
+      ]
+    },
+    {
+      "scenario": "Usuario del dashboard pregunta: '¿Por qué este cliente se va a ir?'",
+      "chatbot_action": "Explicar el main_factor + contexto adicional",
+      "data_needed": [
+        "main_factor del modelo (ej: 'NPS bajo: 25/100')",
+        "puntuacion_nps (valor actual)",
+        "tickets_soporte (historial)",
+        "tipo_queja (si hay)",
+        "ofertas_recibidas (historial de retención)",
+        "cambio_plan_reciente (acciones previas)"
+      ]
+    },
+    {
+      "scenario": "Análisis de segmento: '¿Qué clientes de Brooklyn están en riesgo?'",
+      "chatbot_action": "Agregar datos + contexto geográfico + sugerencias masivas",
+      "data_needed": [
+        "borough = 'Brooklyn'",
+        "risk = 'High' o 'Medium'",
+        "competidores_area (por zona)",
+        "precio_vs_mercado (comparativo)",
+        "promedio de: visitas_app_mensual, tickets_soporte, etc."
+      ]
+    }
+  ],
+  "arquitectura_propuesta": {
+    "tablas_core": [
+      "customers",
+      "subscriptions",
+      "customer_metrics"
+    ],
+    "tabla_nueva": "customer_context",
+    "campos_nuevos_customer_metrics": 2,
+    "campos_customer_context": 10,
+    "total_campos_sistema": 67
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "fecha_analisis": "2026-01-19 22:46:58",
+  "nuevo_modelo": {
+    "path": "outputs/gian/pipelines/11_production_pipeline.pkl",
+    "n_features": 24,
+    "features_list": [
+      "antiguedad",
+      "caracteristicas_usadas",
+      "cargo_mensual",
+      "codigo_postal",
+      "conexiones_mensuales",
+      "dias_activos_semanales",
+      "dias_desde_ultimo_contacto",
+      "dias_ultima_conexion",
+      "edad",
+      "errores_pago",
+      "ingresos_totales",
+      "intensidad_uso",
+      "latitud",
+      "longitud",
+      "promedio_conexion",
+      "puntuacion_csat",
+      "puntuacion_nps",
+      "ratio_carga_financiera",
+      "score_riesgo",
+      "tasa_apertura_email",
+      "tasa_crecimiento_uso",
+      "tickets_soporte",
+      "tiempo_resolucion",
+      "tiempo_sesion_promedio"
+    ]
+  },
+  "columnas_dataset": {
+    "total": 67,
+    "requeridas": [
+      "antiguedad",
+      "caracteristicas_usadas",
+      "cargo_mensual",
+      "codigo_postal",
+      "conexiones_mensuales",
+      "dias_activos_semanales",
+      "dias_ultima_conexion",
+      "edad",
+      "errores_pago",
+      "ingresos_totales",
+      "latitud",
+      "longitud",
+      "promedio_conexion",
+      "puntuacion_csat",
+      "puntuacion_nps",
+      "score_riesgo",
+      "tasa_apertura_email",
+      "tasa_crecimiento_uso",
+      "tickets_soporte",
+      "tiempo_resolucion",
+      "tiempo_sesion_promedio",
+      "ultimo_contacto_soporte"
+    ],
+    "existentes": [
+      "antiguedad",
+      "caracteristicas_usadas",
+      "cargo_mensual",
+      "codigo_postal",
+      "conexiones_mensuales",
+      "dias_activos_semanales",
+      "dias_ultima_conexion",
+      "edad",
+      "errores_pago",
+      "ingresos_totales",
+      "latitud",
+      "longitud",
+      "promedio_conexion",
+      "puntuacion_csat",
+      "puntuacion_nps",
+      "score_riesgo",
+      "tasa_apertura_email",
+      "tasa_crecimiento_uso",
+      "tickets_soporte",
+      "tiempo_resolucion",
+      "tiempo_sesion_promedio",
+      "ultimo_contacto_soporte"
+    ],
+    "faltantes": []
+  },
+  "resumen": {
+    "cambios_bd": {
+      "necesarios": false,
+      "razon": "Todas las columnas base ya existen en data.csv"
+    },
+    "cambios_python": {
+      "necesarios": true,
+      "archivo": "src/main.py",
+      "tipo": "Simplificaci\u00f3n - reemplazar modelo y eliminar encoding manual",
+      "lineas_codigo": "~200 l\u00edneas menos (de 740 a ~540)"
+    },
+    "cambios_java": {
+      "necesarios": false,
+      "razon": "El contrato con Python se mantiene igual"
+    },
+    "cambios_frontend": {
+      "necesarios": false,
+      "razon": "El formato de respuesta se mantiene igual"
+    },
+    "ventajas": [
+      "C\u00f3digo 70% m\u00e1s simple en Python",
+      "Menos bugs potenciales (sin encoding manual)",
+      "M\u00e1s r\u00e1pido (pipeline optimizado)",
+      "M\u00e1s mantenible (menos c\u00f3digo custom)",
+      "M\u00e9tricas realistas (84.59% Recall vs 99.68%)",
+      "60% menos features (24 vs 60)",
+      "Mejor generalizaci\u00f3n en producci\u00f3n"
+    ],
+    "riesgos": [
+      "Cambio en el core del sistema (predicci\u00f3n)",
+      "Requiere testing exhaustivo antes de deploy",
+      "Posible diferencia en predicciones vs modelo actual"
+    ],
+    "tiempo_total": "~2 horas (desarrollo + testing)",
+    "complejidad": "Media-Baja"
+  },
+  "plan_migracion": [
+    {
+      "paso": "1. Backup del modelo actual",
+      "acciones": [
+        "cd ai-ml/models/champion",
+        "mkdir backup_$(date +%Y%m%d)",
+        "cp *.pkl backup_$(date +%Y%m%d)/",
+        "cp metadata.json backup_$(date +%Y%m%d)/"
+      ],
+      "tiempo": "2 min",
+      "riesgo": "Bajo"
+    },
+    {
+      "paso": "2. Copiar nuevo modelo a champion",
+      "acciones": [
+        "cp outputs/gian/pipelines/11_production_pipeline.pkl models/champion/model_pipeline_complete.pkl",
+        "# Actualizar metadata.json con m\u00e9tricas del nuevo modelo"
+      ],
+      "tiempo": "5 min",
+      "riesgo": "Bajo"
+    },
+    {
+      "paso": "3. Modificar src/main.py",
+      "acciones": [
+        "# Reemplazar carga de modelo",
+        "# ANTES: model = joblib.load('model_champion.pkl')",
+        "#        scaler = joblib.load('scaler.pkl')",
+        "# DESPU\u00c9S: pipeline = joblib.load('model_pipeline_complete.pkl')",
+        "",
+        "# Simplificar endpoint /predict",
+        "# Eliminar encoding manual",
+        "# Usar pipeline.predict(df) directamente"
+      ],
+      "tiempo": "30 min",
+      "riesgo": "Medio"
+    },
+    {
+      "paso": "4. Actualizar metadata.json",
+      "acciones": [
+        "# Actualizar con m\u00e9tricas reales del nuevo modelo",
+        "{\"model_name\": \"Random Forest Optimized\",",
+        " \"n_features\": 24,",
+        " \"metrics\": {\"Recall\": 0.8459, \"ROC-AUC\": 0.9302}}"
+      ],
+      "tiempo": "5 min",
+      "riesgo": "Bajo"
+    },
+    {
+      "paso": "5. Testing local",
+      "acciones": [
+        "# Levantar servicio Python",
+        "cd ai-ml && uvicorn src.main:app --reload --port 8000",
+        "",
+        "# Probar con cliente de prueba",
+        "curl -X POST http://localhost:8000/predict -d '{...}'",
+        "",
+        "# Verificar que responda correctamente"
+      ],
+      "tiempo": "15 min",
+      "riesgo": "Bajo"
+    },
+    {
+      "paso": "6. Testing integrado",
+      "acciones": [
+        "# Levantar todo el stack",
+        "docker-compose up",
+        "",
+        "# Probar desde el frontend",
+        "# Verificar predicciones en dashboard",
+        "# Comprobar explicabilidad (main_factor, next_best_action)"
+      ],
+      "tiempo": "20 min",
+      "riesgo": "Medio"
+    },
+    {
+      "paso": "7. Deploy a producci\u00f3n",
+      "acciones": [
+        "# Build de im\u00e1genes Docker",
+        "docker build -t retainai-ml:new .",
+        "",
+        "# Deploy en OCI Container Instances",
+        "# Actualizar variables de entorno si es necesario",
+        "# Monitorear logs"
+      ],
+      "tiempo": "30 min",
+      "riesgo": "Alto"
+    }
+  ]
+}

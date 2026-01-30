@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # ML Microservice
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: retainai-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      # Mount models for development (optional)
+      - ./data-science/models:/app/data-science/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - retainai-network
+
+  # Optional: Nginx reverse proxy (for production-like setup)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: retainai-nginx
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - ml-service
+  #   networks:
+  #     - retainai-network
+  #   restart: unless-stopped
+
+networks:
+  retainai-network:
+    driver: bridge

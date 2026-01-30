@@ -1,0 +1,77 @@
+{
+  "fecha_analisis": "2026-01-19 22:57:00",
+  "resumen": {
+    "columnas_csv": 67,
+    "campos_bd": 55,
+    "faltantes_en_bd": [
+      "cambio_plan_reciente",
+      "competidores_area",
+      "dias_mora",
+      "downgrade_reciente",
+      "features_nuevas_usadas",
+      "fecha_ultimo_pago",
+      "intentos_cobro_fallidos",
+      "ofertas_recibidas",
+      "precio_vs_mercado",
+      "tiempo_sesion_promedio",
+      "ultimo_contacto_soporte",
+      "visitas_app_mensual"
+    ],
+    "extras_en_bd": [],
+    "typos_bd": {
+      "conecciones_mensuales": "conexiones_mensuales",
+      "promedio_coneccion": "promedio_conexion",
+      "dias_ultima_coneccion": "dias_ultima_conexion"
+    }
+  },
+  "nuevo_modelo": {
+    "features_totales": 25,
+    "features_en_csv": 22,
+    "features_en_bd": 20,
+    "features_faltantes": [
+      "dias_desde_ultimo_contacto",
+      "intensidad_uso",
+      "ratio_carga_financiera"
+    ]
+  },
+  "campos_criticos_agregar": [
+    {
+      "campo": "tiempo_sesion_promedio",
+      "tabla": "customer_metrics",
+      "tipo": "FLOAT",
+      "motivo": "Feature #24 del nuevo modelo"
+    },
+    {
+      "campo": "ultimo_contacto_soporte",
+      "tabla": "customer_metrics",
+      "tipo": "DATE",
+      "motivo": "Necesario para calcular dias_desde_ultimo_contacto (feature calculado)"
+    }
+  ],
+  "campos_opcionales": [
+    "cambio_plan_reciente",
+    "competidores_area",
+    "downgrade_reciente",
+    "fecha_ultimo_pago",
+    "features_nuevas_usadas",
+    "intentos_cobro_fallidos",
+    "dias_mora",
+    "ofertas_recibidas",
+    "precio_vs_mercado",
+    "visitas_app_mensual"
+  ],
+  "mapeo_nombres": {
+    "id": "cliente_id",
+    "segmento": "segmento_cliente",
+    "meses_permanencia": "antiguedad",
+    "cuota_mensual": "cargo_mensual",
+    "conecciones_mensuales": "conexiones_mensuales",
+    "promedio_coneccion": "promedio_conexion",
+    "dias_ultima_coneccion": "dias_ultima_conexion",
+    "score_csat": "puntuacion_csat",
+    "escaladas_soporte": "escaladas",
+    "tasa_clics": "tasa_clics_marketing",
+    "score_nps": "puntuacion_nps",
+    "abandono_historico": "cancelacion"
+  }
+}

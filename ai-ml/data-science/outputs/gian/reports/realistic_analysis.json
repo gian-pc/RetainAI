@@ -1,0 +1,28 @@
+{
+  "fecha_analisis": "2026-01-19 20:44:10",
+  "conclusion": "ADOPTAR NUEVO MODELO",
+  "champion_assessment": {
+    "clasificacion": "\u26a0\ufe0f ZONA SOSPECHOSA (Posible Overfitting)",
+    "recall": 0.9967845659163987,
+    "roc_auc": 0.9977837176730515,
+    "veredicto": "Overfitting o data leakage - m\u00e9tricas irrealistas",
+    "confiabilidad_produccion": "BAJA"
+  },
+  "nuevo_modelo_assessment": {
+    "clasificacion": "\ud83c\udf1f EXCELENTE (State-of-the-art)",
+    "recall": 0.8459016393442623,
+    "roc_auc": 0.9302457012305101,
+    "veredicto": "M\u00e9tricas excelentes y realistas",
+    "confiabilidad_produccion": "ALTA"
+  },
+  "benchmarks_industria": {
+    "recall_excelente": "80-88%",
+    "roc_auc_excelente": "0.85-0.92",
+    "nuevo_modelo_ranking": "State-of-the-art / Top Tier"
+  },
+  "recomendacion": {
+    "modelo_elegido": "11_production_pipeline.pkl",
+    "razon": "M\u00e9tricas realistas, menos features, mejor generalizaci\u00f3n",
+    "riesgo_champion": "No funcionar\u00e1 en producci\u00f3n - overfitting evidente"
+  }
+}

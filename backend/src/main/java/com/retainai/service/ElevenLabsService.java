@@ -78,8 +78,8 @@ public class ElevenLabsService {
             throw new RuntimeException("ElevenLabs API devolvió una respuesta no válida");
 
         } catch (Exception e) {
-            log.error("❌ Error al comunicarse con ElevenLabs API: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al comunicarse con ElevenLabs API: " + e.getMessage(), e);
+            log.warn("⚠️ TTS no disponible: {}", e.getMessage());
+            return new byte[0];
         }
     }
 }

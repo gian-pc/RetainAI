@@ -21,9 +21,6 @@ RetainAI transforma la predicción pasiva de churn en un **Sistema de Acción Pr
 - 📊 **Dashboard Empresarial**: KPIs, métricas y análisis de cohortes
 - ☁️ **Production-Ready**: Optimizado para Oracle Cloud Infrastructure (OCI)
 
-**Diferenciador Clave:**
-> "El hackathon pedía predecir churn. Nosotros construimos un ecosistema completo con IA explicable, mapas de riesgo geográfico en tiempo real, y asistente conversacional que toma decisiones automáticas de retención."
-
 ---
 
 ## 📸 Vista Previa de la Aplicación
